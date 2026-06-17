@@ -61,11 +61,12 @@ class OCREngine(ABC):
     """Abstract OCR engine interface."""
 
     @abstractmethod
-    def recognize(self, image: np.ndarray) -> OCRResult:
+    def recognize(self, image: np.ndarray, dpi: float | None = None) -> OCRResult:
         """Recognize text from an image.
 
         Args:
             image: Preprocessed image array.
+            dpi: Optional resolution DPI.
 
         Returns:
             Normalized OCR result.
@@ -105,11 +106,12 @@ class TesseractEngine(OCREngine):
             return 4
         return self.default_psm
 
-    def recognize(self, image: np.ndarray) -> OCRResult:
+    def recognize(self, image: np.ndarray, dpi: float | None = None) -> OCRResult:
         """Recognize text with Tesseract.
 
         Args:
             image: Preprocessed image.
+            dpi: Optional resolution DPI.
 
         Returns:
             Normalized OCR result.
@@ -177,11 +179,12 @@ class EasyOCREngine(OCREngine):
             self._reader = easyocr.Reader(self.languages, gpu=False)
         return self._reader
 
-    def recognize(self, image: np.ndarray) -> OCRResult:
+    def recognize(self, image: np.ndarray, dpi: float | None = None) -> OCRResult:
         """Recognize text with EasyOCR.
 
         Args:
             image: Preprocessed image.
+            dpi: Optional resolution DPI.
 
         Returns:
             Normalized OCR result.
@@ -239,33 +242,89 @@ class OCRPipeline:
         )
         self.easyocr_languages = [str(language) for language in ocr_config.get("easyocr_languages", ["en"])]
 
-    def recognize(self, image: np.ndarray) -> OCRResult:
+        qc_config = self.config.get("quality_check", {})
+        self.min_dpi = int(qc_config.get("min_dpi", 150))
+        self.blur_threshold = int(qc_config.get("blur_threshold", 100))
+
+    def recognize(self, image: np.ndarray, dpi: float | None = None) -> OCRResult:
         """Run OCR and fallback when confidence is low.
 
         Args:
             image: Preprocessed image.
+            dpi: Optional resolution DPI.
 
         Returns:
             Best OCR result.
         """
+        # Quality pre-checks
+        # 1. DPI check
+        if dpi is None:
+            # Estimate DPI assuming standard letter/A4 sheet (8.5 inches wide)
+            dpi = max(image.shape[1] / 8.5, image.shape[0] / 11.0)
+            logger.info("DPI not provided; estimated resolution is %.1f DPI", dpi)
+
+        if dpi < self.min_dpi:
+            raise ValueError(
+                f"Image resolution too low: {dpi:.1f} DPI (minimum required: {self.min_dpi} DPI)"
+            )
+
+        # 2. Blurriness warning
         try:
-            result = self.primary.recognize(image)
+            gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+            if variance < self.blur_threshold:
+                logger.warning(
+                    "Image is blurry (Laplacian variance: %.2f < %d). OCR quality may be reduced.",
+                    variance, self.blur_threshold
+                )
+            else:
+                logger.info("Image clarity check passed (Laplacian variance: %.2f)", variance)
+        except Exception as e:
+            logger.warning("Could not calculate image blurriness: %s", e)
+
+        try:
+            result = self.primary.recognize(image, dpi)
+            logger.info("Primary OCR engine (Tesseract) executed successfully.")
         except Exception as exc:
             logger.exception("Tesseract OCR failed: %s", exc)
             result = {"raw_text": "", "confidence": 0.0, "engine_used": "tesseract", "word_boxes": []}
 
-        if result["confidence"] >= self.confidence_threshold or self.fallback_engine != "easyocr":
+        if result["confidence"] >= self.confidence_threshold:
+            logger.info(
+                "Using primary engine (Tesseract) because confidence (%.2f) is above threshold (%d).",
+                result["confidence"], self.confidence_threshold
+            )
             return result
 
+        if self.fallback_engine != "easyocr":
+            logger.info(
+                "Tesseract confidence (%.2f) is below threshold (%d) but no fallback engine is configured.",
+                result["confidence"], self.confidence_threshold
+            )
+            return result
+
+        logger.info(
+            "Tesseract confidence (%.2f) is below threshold (%d). Invoking EasyOCR fallback.",
+            result["confidence"], self.confidence_threshold
+        )
         try:
-            fallback = EasyOCREngine(self.easyocr_languages).recognize(image)
+            fallback = EasyOCREngine(self.easyocr_languages).recognize(image, dpi)
         except Exception as exc:
             logger.exception("EasyOCR fallback failed: %s", exc)
+            logger.info("Falling back to Tesseract results due to fallback failure.")
             return result
 
         if fallback["confidence"] > result["confidence"]:
-            logger.info("Using EasyOCR fallback with confidence %.2f", fallback["confidence"])
+            logger.info(
+                "Using EasyOCR fallback engine because its confidence (%.2f) is higher than Tesseract (%.2f).",
+                fallback["confidence"], result["confidence"]
+            )
             return fallback
+
+        logger.info(
+            "Using Tesseract engine because its confidence (%.2f) is higher than or equal to EasyOCR (%.2f).",
+            result["confidence"], fallback["confidence"]
+        )
         return result
 
 
@@ -284,14 +343,20 @@ def _safe_float(value: Any) -> float:
         return -1.0
 
 
-def run_ocr(image: np.ndarray, config_path: Path | None = None) -> OCRResult:
+def run_ocr(
+    image: np.ndarray,
+    config_path: Path | None = None,
+    dpi: float | None = None,
+) -> OCRResult:
     """Run the configured OCR pipeline.
 
     Args:
         image: Preprocessed image.
         config_path: Optional config path.
+        dpi: Optional resolution DPI.
 
     Returns:
         Normalized OCR result.
     """
-    return OCRPipeline(load_config(config_path)).recognize(image)
+    return OCRPipeline(load_config(config_path)).recognize(image, dpi=dpi)
+

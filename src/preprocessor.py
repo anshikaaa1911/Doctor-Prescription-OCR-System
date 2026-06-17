@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -28,11 +29,21 @@ class PreprocessMetadata(TypedDict):
     confidence: float
 
 
+class PipelineReport(TypedDict):
+    """Pipeline report dictionary."""
+
+    deskew_angle: float
+    clahe_applied: bool
+    denoised: bool
+    final_resolution: list[int]
+
+
 class PreprocessResult(TypedDict):
     """Preprocessing result."""
 
     image: np.ndarray
     metadata: PreprocessMetadata
+    pipeline_report: PipelineReport
 
 
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
@@ -59,7 +70,7 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
 
 
 def load_image(image_path: Path) -> np.ndarray:
-    """Load an image from disk with OpenCV.
+    """Load an image from disk with OpenCV, correcting EXIF orientation.
 
     Args:
         image_path: Path to the image file.
@@ -69,13 +80,31 @@ def load_image(image_path: Path) -> np.ndarray:
 
     Raises:
         FileNotFoundError: If the image path does not exist.
-        ValueError: If OpenCV cannot decode the image.
+        ValueError: If OpenCV cannot decode the image or image is black.
     """
     if not image_path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
-    image = cv2.imread(str(image_path))
+
+    try:
+        from PIL import Image, ImageOps
+        with Image.open(image_path) as pil_img:
+            temp_arr = np.array(pil_img)
+            if temp_arr.size > 0 and np.all(temp_arr == 0):
+                raise ValueError("Input image is completely black.")
+            corrected_pil = ImageOps.exif_transpose(pil_img)
+            image = cv2.cvtColor(np.array(corrected_pil), cv2.COLOR_RGB2BGR)
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.warning("Failed to correct EXIF orientation: %s, falling back to cv2.imread", e)
+        image = cv2.imread(str(image_path))
+
     if image is None:
         raise ValueError(f"Could not decode image: {image_path}")
+
+    if np.all(image == 0):
+        raise ValueError("Input image is completely black.")
+
     return image
 
 
@@ -108,6 +137,32 @@ def to_grayscale(image: np.ndarray) -> np.ndarray:
     if image.ndim == 2:
         return image.copy()
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+
+def correct_orientation(image: np.ndarray) -> tuple[np.ndarray, int]:
+    """Correct image orientation using Tesseract OSD.
+
+    Args:
+        image: Grayscale or BGR image.
+
+    Returns:
+        Tuple of (rotated_image, rotation_angle_degrees).
+    """
+    try:
+        import pytesseract
+        osd = pytesseract.image_to_osd(image)
+        rotate_match = re.search(r"Rotate:\s*(\d+)", osd)
+        if rotate_match:
+            angle = int(rotate_match.group(1))
+            if angle == 90:
+                return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE), 90
+            elif angle == 180:
+                return cv2.rotate(image, cv2.ROTATE_180), 180
+            elif angle == 270:
+                return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE), 270
+    except Exception as e:
+        logger.warning("Tesseract OSD orientation detection failed: %s", e)
+    return image.copy(), 0
 
 
 def apply_clahe(
@@ -279,11 +334,18 @@ def preprocess_array(image: np.ndarray, config: dict[str, Any] | None = None) ->
     Returns:
         Processed image and confidence metadata.
     """
+    if image is None or image.size == 0 or np.all(image == 0):
+        raise ValueError("Input image is empty or completely black.")
+
     settings = (config or {}).get("preprocessing", {})
     resized = resize_image(image, settings.get("resize_width", 1600))
     gray = to_grayscale(resized)
+    
+    # Auto-rotation correction (OSD)
+    corrected_gray, rot_angle = correct_orientation(gray)
+
     tile_size = tuple(settings.get("clahe_tile_grid_size", [8, 8]))
-    enhanced = apply_clahe(gray, float(settings.get("clahe_clip_limit", 2.0)), (int(tile_size[0]), int(tile_size[1])))
+    enhanced = apply_clahe(corrected_gray, float(settings.get("clahe_clip_limit", 2.0)), (int(tile_size[0]), int(tile_size[1])))
     denoised = remove_noise(enhanced, bool(settings.get("denoise", True)))
     deskewed, skew_angle = deskew_image(denoised, bool(settings.get("deskew", True)))
     thresholded = adaptive_threshold(
@@ -307,8 +369,16 @@ def preprocess_array(image: np.ndarray, config: dict[str, Any] | None = None) ->
         "morphology_applied": True,
         "confidence": confidence,
     }
+    
+    pipeline_report: PipelineReport = {
+        "deskew_angle": float(round(skew_angle, 3)),
+        "clahe_applied": True,
+        "denoised": bool(settings.get("denoise", True)),
+        "final_resolution": [int(processed.shape[1]), int(processed.shape[0])]
+    }
+
     logger.info("Preprocessing complete with confidence %.3f", confidence)
-    return {"image": processed, "metadata": metadata}
+    return {"image": processed, "metadata": metadata, "pipeline_report": pipeline_report}
 
 
 def preprocess_image(image_path: Path, config_path: Path | None = None) -> PreprocessResult:
@@ -324,3 +394,4 @@ def preprocess_image(image_path: Path, config_path: Path | None = None) -> Prepr
     config = load_config(config_path)
     image = load_image(image_path)
     return preprocess_array(image, config)
+

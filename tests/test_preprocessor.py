@@ -106,3 +106,27 @@ def test_preprocess_array_returns_metadata(color_image: np.ndarray) -> None:
     assert result["image"].ndim == 2
     assert result["metadata"]["clahe_applied"] is True
     assert 0.0 <= result["metadata"]["confidence"] <= 1.0
+
+
+def test_preprocess_array_returns_pipeline_report(color_image: np.ndarray) -> None:
+    """Test that pipeline_report keys are present in preprocess_array result."""
+    result = preprocess_array(color_image, None)
+    assert "pipeline_report" in result
+    report = result["pipeline_report"]
+    assert "deskew_angle" in report
+    assert "clahe_applied" in report
+    assert "denoised" in report
+    assert "final_resolution" in report
+    assert isinstance(report["deskew_angle"], float)
+    assert isinstance(report["clahe_applied"], bool)
+    assert isinstance(report["denoised"], bool)
+    assert isinstance(report["final_resolution"], list)
+    assert len(report["final_resolution"]) == 2
+
+
+def test_preprocess_black_image_raises_value_error() -> None:
+    """Test that a completely black image raises a ValueError."""
+    black_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    with pytest.raises(ValueError, match="completely black"):
+        preprocess_array(black_img, None)
+
