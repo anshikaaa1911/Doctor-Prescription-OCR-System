@@ -1,0 +1,22 @@
+ocr:
+  tesseract_psm: 6
+  confidence_threshold: 60
+  fallback_engine: easyocr
+  language: eng
+  easyocr_languages: [en]
+preprocessing:
+  clahe_clip_limit: 2.0
+  clahe_tile_grid_size: [8, 8]
+  deskew: true
+  denoise: true
+  resize_width: 1600
+  adaptive_block_size: 31
+  adaptive_c: 11
+  morphology_kernel_size: [2, 2]
+api:
+  max_file_size_mb: 10
+  allowed_formats: [jpg, png, pdf]
+validator:
+  openfda_base_url: https://api.fda.gov/drug/label.json
+  confidence_threshold: 0.7
+  timeout_seconds: 5
