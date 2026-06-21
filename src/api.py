@@ -1,6 +1,5 @@
 """FastAPI application for prescription OCR."""
 
-from __future__ import annotations
 
 import asyncio
 import io
@@ -215,7 +214,7 @@ def process_image_array(image: np.ndarray, config: dict[str, Any], dpi: float | 
     """
     preprocessed = preprocess_array(image, config)
     ocr_result = OCRPipeline(config).recognize(preprocessed["image"], dpi=dpi)
-    extracted = extract_prescription_fields(ocr_result["raw_text"])
+    extracted = extract_prescription_fields(ocr_result["raw_text"], config)
     medicine_names = [medicine["name"] for medicine in extracted["medicines"] if medicine["name"]]
     validation = validate_medicines(medicine_names)
     return {
@@ -327,6 +326,8 @@ async def ocr_endpoint(request: Request, file: UploadFile = File(...)) -> dict[s
         result = await process_upload(file, config, request.state.request_id)
         result["request_id"] = request.state.request_id
         return result
+    except HTTPException as exc:
+        raise exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -462,4 +463,3 @@ def save_temp_upload(content: bytes, suffix: str) -> Path:
     with handle:
         handle.write(content)
     return Path(handle.name)
-

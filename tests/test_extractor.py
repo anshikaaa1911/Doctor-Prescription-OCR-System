@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from src.extractor import extract_prescription_fields
@@ -130,7 +132,7 @@ def test_extract_medicines_from_mock_outputs(mock_ocr_outputs: list[str]) -> Non
     extracted = [extract_prescription_fields(text) for text in mock_ocr_outputs[:5]]
     assert extracted[0]["medicines"][0]["name"] == "Amlodipine"
     assert extracted[1]["medicines"][0]["dosage"] == "500mg"
-    assert extracted[2]["medicines"][0]["frequency"].lower() == "bd"
+    assert extracted[2]["medicines"][0]["frequency"].lower() == "twice daily"
     assert extracted[3]["medicines"][0]["duration"] == "5 days"
     assert len(extracted[4]["medicines"]) == 2
 
@@ -167,3 +169,67 @@ def test_extractor_confidence_and_nulls(mock_ocr_outputs: list[str]) -> None:
     assert multi_res["medicines"][0]["name"] == "Fluoxetine"
     assert multi_res["medicines"][1]["frequency"] == "As needed"  # PRN -> As needed
 
+
+def test_extract_prescription_fields_uses_openai_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_ocr_outputs: list[str],
+) -> None:
+    """Test OpenAI-backed extraction without calling the real API."""
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {
+                "output_text": """
+                {
+                  "patient_name": "OpenAI Patient",
+                  "patient_age": "45",
+                  "date": "12/05/2026",
+                  "doctor_name": "Dr. Alice Smith",
+                  "diagnosis": "Hypertension",
+                  "notes": "Review after one month",
+                  "medicines": [
+                    {
+                      "name": "Amlodipine",
+                      "dosage": "5mg",
+                      "frequency": "Once daily",
+                      "duration": "30 days",
+                      "confidence": 0.95,
+                      "confidences": {
+                        "name": 0.95,
+                        "dosage": 0.95,
+                        "frequency": 0.95,
+                        "duration": 0.95
+                      }
+                    }
+                  ],
+                  "confidences": {
+                    "patient_name": 0.95,
+                    "patient_age": 0.95,
+                    "date": 0.95,
+                    "doctor_name": 0.95,
+                    "diagnosis": 0.95,
+                    "notes": 0.95,
+                    "medicines": 0.95
+                  }
+                }
+                """
+            }
+
+    def fake_post(*args: Any, **kwargs: Any) -> FakeResponse:
+        assert kwargs["headers"]["Authorization"] == "Bearer test-key"
+        assert kwargs["json"]["model"] == "gpt-4.1-mini"
+        return FakeResponse()
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr("src.llm.httpx.post", fake_post)
+
+    result = extract_prescription_fields(
+        mock_ocr_outputs[0],
+        {"llm": {"provider": "openai", "model": "gpt-4.1-mini"}},
+    )
+
+    assert result["patient_name"] == "OpenAI Patient"
+    assert result["medicines"][0]["frequency"] == "Once daily"

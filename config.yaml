@@ -29,4 +29,9 @@ validation:
 quality_check:
   min_dpi: 150
   blur_threshold: 100
-
+llm:
+  provider: local
+  model: gpt-4.1-mini
+  api_key_env: OPENAI_API_KEY
+  timeout_seconds: 20
+  max_input_chars: 6000
