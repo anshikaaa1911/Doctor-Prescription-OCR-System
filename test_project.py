@@ -17,6 +17,13 @@ Run this to diagnose setup issues:
 import sys
 import os
 
+from src.tesseract_config import configure_tesseract
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+configure_tesseract()
+
 
 def test_python_version():
     """Check Python version."""

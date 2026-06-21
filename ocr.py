@@ -21,6 +21,10 @@ import os
 from datetime import datetime
 import json
 
+from src.tesseract_config import configure_tesseract
+
+configure_tesseract()
+
 
 def extract_text_from_image(preprocessed_image):
     """

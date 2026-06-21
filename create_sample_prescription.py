@@ -14,7 +14,11 @@ It will create: images/sample_prescription.png
 
 import cv2
 import numpy as np
+import sys
 from datetime import datetime
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 
 def create_sample_prescription_image():

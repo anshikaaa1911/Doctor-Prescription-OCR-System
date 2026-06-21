@@ -11,6 +11,10 @@ from typing import Any, TypedDict
 import cv2
 import numpy as np
 
+from src.tesseract_config import configure_tesseract
+
+configure_tesseract()
+
 logger = logging.getLogger(__name__)
 
 
@@ -394,4 +398,3 @@ def preprocess_image(image_path: Path, config_path: Path | None = None) -> Prepr
     config = load_config(config_path)
     image = load_image(image_path)
     return preprocess_array(image, config)
-

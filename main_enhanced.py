@@ -32,6 +32,9 @@ import sys
 from preprocess import preprocess_image, create_comparison_image
 from ocr import process_prescription_image
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def find_image_files(images_folder="images"):
     """
@@ -45,11 +48,14 @@ def find_image_files(images_folder="images"):
     Returns:
         list: List of paths to image files found
         
-    Raises:
-        FileNotFoundError: If images folder doesn't exist
+    Notes:
+        Creates the images folder if it does not exist.
     """
     if not os.path.exists(images_folder):
-        raise FileNotFoundError(f"Images folder not found: {images_folder}")
+        os.makedirs(images_folder, exist_ok=True)
+        print(f"Created missing images folder: {images_folder}")
+        print(f"Please add prescription images to the '{images_folder}' folder and try again.")
+        return []
     
     # Supported image extensions
     supported_formats = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')

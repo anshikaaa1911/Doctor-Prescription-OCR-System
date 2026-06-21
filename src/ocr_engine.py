@@ -9,6 +9,10 @@ from typing import Any, TypedDict
 import cv2
 import numpy as np
 import pytesseract
+
+from src.tesseract_config import configure_tesseract
+
+configure_tesseract()
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -359,4 +363,3 @@ def run_ocr(
         Normalized OCR result.
     """
     return OCRPipeline(load_config(config_path)).recognize(image, dpi=dpi)
-
