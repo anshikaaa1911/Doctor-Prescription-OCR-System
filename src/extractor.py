@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any, TypedDict
 
-from src.llm import extract_person_entities, extract_prescription_with_openai, load_llm_pipeline, should_use_openai
+from src.llm import extract_person_entities, load_llm_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -442,59 +442,11 @@ def clean_medicine_name(value: str) -> str:
     return clean_field(name)
 
 
-def _normalize_openai_result(result: dict[str, Any], fallback: PrescriptionFields) -> PrescriptionFields:
-    """Normalize an OpenAI extraction result to the expected prescription shape."""
-    medicines: list[Medicine] = []
-    for medicine in result.get("medicines", []):
-        if not isinstance(medicine, dict):
-            continue
-        confidences = medicine.get("confidences") if isinstance(medicine.get("confidences"), dict) else {}
-        med_conf = {
-            "name": float(confidences.get("name", 0.0)),
-            "dosage": float(confidences.get("dosage", 0.0)),
-            "frequency": float(confidences.get("frequency", 0.0)),
-            "duration": float(confidences.get("duration", 0.0)),
-        }
-        medicines.append(
-            {
-                "name": clean_field(str(medicine["name"])) if medicine.get("name") else None,
-                "dosage": clean_field(str(medicine["dosage"])) if medicine.get("dosage") else None,
-                "frequency": clean_field(str(medicine["frequency"])) if medicine.get("frequency") else None,
-                "duration": clean_field(str(medicine["duration"])) if medicine.get("duration") else None,
-                "confidence": round(max(0.0, min(float(medicine.get("confidence", 0.0)), 1.0)), 2),
-                "confidences": {key: round(max(0.0, min(value, 1.0)), 2) for key, value in med_conf.items()},
-            }
-        )
-
-    confidences = result.get("confidences") if isinstance(result.get("confidences"), dict) else {}
-    field_conf = {
-        "patient_name": float(confidences.get("patient_name", 0.0)),
-        "patient_age": float(confidences.get("patient_age", 0.0)),
-        "date": float(confidences.get("date", 0.0)),
-        "doctor_name": float(confidences.get("doctor_name", 0.0)),
-        "diagnosis": float(confidences.get("diagnosis", 0.0)),
-        "notes": float(confidences.get("notes", 0.0)),
-        "medicines": float(confidences.get("medicines", 0.0)),
-    }
-
-    return {
-        "patient_name": clean_field(str(result["patient_name"])) if result.get("patient_name") else None,
-        "patient_age": clean_field(str(result["patient_age"])) if result.get("patient_age") else None,
-        "date": clean_field(str(result["date"])) if result.get("date") else None,
-        "doctor_name": clean_field(str(result["doctor_name"])) if result.get("doctor_name") else None,
-        "medicines": medicines or fallback["medicines"],
-        "diagnosis": clean_field(str(result["diagnosis"])) if result.get("diagnosis") else None,
-        "notes": clean_field(str(result["notes"])) if result.get("notes") else None,
-        "confidences": {key: round(max(0.0, min(value, 1.0)), 2) for key, value in field_conf.items()},
-    }
-
-
-def extract_prescription_fields(raw_text: str, config: dict[str, Any] | None = None) -> PrescriptionFields:
+def extract_prescription_fields(raw_text: str) -> PrescriptionFields:
     """Extract structured fields from OCR text.
 
     Args:
         raw_text: Raw OCR output.
-        config: Optional application configuration.
 
     Returns:
         Structured prescription JSON-compatible dictionary.
@@ -523,7 +475,7 @@ def extract_prescription_fields(raw_text: str, config: dict[str, Any] | None = N
     med_confs = [m["confidence"] for m in medicines]
     field_conf["medicines"] = round(sum(med_confs) / len(med_confs) if med_confs else 0.0, 2)
 
-    local_result: PrescriptionFields = {
+    return {
         "patient_name": fields["patient_name"],
         "patient_age": fields["patient_age"],
         "date": fields["date"],
@@ -533,10 +485,3 @@ def extract_prescription_fields(raw_text: str, config: dict[str, Any] | None = N
         "notes": fields["notes"],
         "confidences": field_conf,
     }
-
-    if should_use_openai(config):
-        openai_result = extract_prescription_with_openai(raw_text, local_result, config)
-        if openai_result:
-            return _normalize_openai_result(openai_result, local_result)
-
-    return local_result
