@@ -107,11 +107,11 @@ def extract_person_entities(text: str, llm: Any | None = None) -> list[tuple[str
 
 
 def should_use_openai(config: dict[str, Any] | None) -> bool:
-    """Return whether OpenAI extraction is enabled by config and environment."""
+    """Return whether OpenAI or NVIDIA NIM extraction is enabled by config and environment."""
     llm_config = (config or {}).get("llm", {})
     provider = str(llm_config.get("provider", "local")).lower()
     api_key_env = str(llm_config.get("api_key_env", "OPENAI_API_KEY"))
-    return provider == "openai" and bool(os.getenv(api_key_env))
+    return provider in {"openai", "nvidia"} and bool(os.getenv(api_key_env))
 
 
 def extract_prescription_with_openai(
@@ -119,12 +119,13 @@ def extract_prescription_with_openai(
     baseline: dict[str, Any],
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Extract prescription fields with the OpenAI Responses API.
+    """Extract prescription fields with OpenAI or NVIDIA NIM API.
 
-    Returns None when OpenAI is not configured or the request fails, allowing
+    Returns None when LLM is not configured or the request fails, allowing
     callers to keep using deterministic local extraction as a fallback.
     """
     llm_config = (config or {}).get("llm", {})
+    provider = str(llm_config.get("provider", "local")).lower()
     api_key_env = str(llm_config.get("api_key_env", "OPENAI_API_KEY"))
     api_key = os.getenv(api_key_env)
     if not api_key:
@@ -143,43 +144,81 @@ def extract_prescription_with_openai(
         f"OCR text:\n{raw_text[:max_chars]}"
     )
 
-    payload = {
-        "model": model,
-        "input": [
-            {
-                "role": "system",
-                "content": (
-                    "You extract medical prescription OCR into strict JSON. "
-                    "Do not invent patient, doctor, or medicine details."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "text": {
-            "format": {
-                "type": "json_schema",
-                "name": "prescription_fields",
-                "strict": True,
-                "schema": PRESCRIPTION_SCHEMA,
-            }
-        },
-    }
-
     try:
-        response = httpx.post(
-            "https://api.openai.com/v1/responses",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=timeout_seconds,
-        )
-        response.raise_for_status()
-        content = _extract_response_text(response.json())
-        parsed = json.loads(content)
+        if provider == "openai":
+            payload = {
+                "model": model,
+                "input": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You extract medical prescription OCR into strict JSON. "
+                            "Do not invent patient, doctor, or medicine details."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "text": {
+                    "format": {
+                        "type": "json_schema",
+                        "name": "prescription_fields",
+                        "strict": True,
+                        "schema": PRESCRIPTION_SCHEMA,
+                    }
+                },
+            }
+            response = httpx.post(
+                "https://api.openai.com/v1/responses",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+            content = _extract_response_text(response.json())
+            parsed = json.loads(content)
+        elif provider == "nvidia":
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You extract medical prescription OCR into strict JSON matching this schema: "
+                            f"{json.dumps(PRESCRIPTION_SCHEMA)}. "
+                            "Do not invent patient, doctor, or medicine details. Return only raw JSON without code blocks."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.2,
+                "top_p": 0.7,
+                "max_tokens": 1024
+            }
+            response = httpx.post(
+                "https://integrate.api.nvidia.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+            res_json = response.json()
+            content = res_json["choices"][0]["message"]["content"]
+            # Clean up potential markdown formatting in Llama response
+            if content.startswith("```json"):
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif content.startswith("```"):
+                content = content.split("```")[1].split("```")[0].strip()
+            parsed = json.loads(content)
+        else:
+            return None
     except Exception as exc:
-        logger.warning("OpenAI prescription extraction failed; using local extraction: %s", exc)
+        logger.warning("%s prescription extraction failed; using local extraction: %s", provider.upper(), exc)
         return None
 
     return parsed if isinstance(parsed, dict) else None

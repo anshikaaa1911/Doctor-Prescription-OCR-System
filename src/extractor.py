@@ -6,7 +6,13 @@ import logging
 import re
 from typing import Any, TypedDict
 
-from src.llm import extract_person_entities, load_llm_pipeline
+from src.llm import (
+    extract_person_entities,
+    load_llm_pipeline,
+    should_use_openai,
+    extract_prescription_with_openai,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -442,11 +448,15 @@ def clean_medicine_name(value: str) -> str:
     return clean_field(name)
 
 
-def extract_prescription_fields(raw_text: str) -> PrescriptionFields:
+def extract_prescription_fields(
+    raw_text: str,
+    config: dict[str, Any] | None = None,
+) -> PrescriptionFields:
     """Extract structured fields from OCR text.
 
     Args:
         raw_text: Raw OCR output.
+        config: Optional configuration dictionary.
 
     Returns:
         Structured prescription JSON-compatible dictionary.
@@ -475,7 +485,7 @@ def extract_prescription_fields(raw_text: str) -> PrescriptionFields:
     med_confs = [m["confidence"] for m in medicines]
     field_conf["medicines"] = round(sum(med_confs) / len(med_confs) if med_confs else 0.0, 2)
 
-    return {
+    baseline = {
         "patient_name": fields["patient_name"],
         "patient_age": fields["patient_age"],
         "date": fields["date"],
@@ -485,3 +495,10 @@ def extract_prescription_fields(raw_text: str) -> PrescriptionFields:
         "notes": fields["notes"],
         "confidences": field_conf,
     }
+
+    if should_use_openai(config):
+        openai_result = extract_prescription_with_openai(raw_text, baseline, config)
+        if openai_result:
+            return openai_result
+
+    return baseline

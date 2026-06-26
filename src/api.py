@@ -4,8 +4,6 @@
 import asyncio
 import io
 import logging
-import tempfile
-import uuid
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -79,7 +77,7 @@ async def add_request_id_middleware(request: Request, call_next):
     Returns:
         Response object with X-Request-ID header.
     """
-    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request_id = request.headers.get("X-Request-ID", str(uuid4()))
     request.state.request_id = request_id
     response: Response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
@@ -201,6 +199,29 @@ def decode_pdf_first_page(content: bytes) -> np.ndarray:
     return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
 
+def _get_dpi(content: bytes, extension: str) -> float | None:
+    """Extract DPI from image or PDF bytes if available.
+
+    Args:
+        content: Uploaded file bytes.
+        extension: File extension.
+
+    Returns:
+        Estimated or actual DPI, or None.
+    """
+    if extension == "pdf":
+        return 200.0
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(content)) as img:
+            dpi_tuple = img.info.get("dpi")
+            if dpi_tuple:
+                return float(dpi_tuple[0])
+    except Exception:
+        pass
+    return None
+
+
 def process_image_array(image: np.ndarray, config: dict[str, Any], dpi: float | None = None) -> dict[str, Any]:
     """Run preprocessing, OCR, extraction, and validation.
 
@@ -247,18 +268,7 @@ async def process_upload(upload: UploadFile, config: dict[str, Any], request_id:
     extension = "jpg" if extension == "jpeg" else extension
     image = decode_image(content, extension)
 
-    # Extract DPI if available
-    dpi = None
-    if extension != "pdf":
-        try:
-            with Image.open(io.BytesIO(content)) as img:
-                dpi_tuple = img.info.get("dpi")
-                if dpi_tuple:
-                    dpi = float(dpi_tuple[0])
-        except Exception:
-            pass
-    else:
-        dpi = 200.0
+    dpi = _get_dpi(content, extension)
 
     return await asyncio.to_thread(process_image_array, image, config, dpi)
 
@@ -278,18 +288,7 @@ def process_batch_job(job_id: str, files: list[tuple[str, bytes]], config: dict[
         extension = "jpg" if extension == "jpeg" else extension
         try:
             image = decode_image(content, extension)
-            # Read DPI from image bytes
-            dpi = None
-            if extension != "pdf":
-                try:
-                    with Image.open(io.BytesIO(content)) as img:
-                        dpi_tuple = img.info.get("dpi")
-                        if dpi_tuple:
-                            dpi = float(dpi_tuple[0])
-                except Exception:
-                    pass
-            else:
-                dpi = 200.0
+            dpi = _get_dpi(content, extension)
                 
             result = process_image_array(image, config, dpi)
             results.append({"filename": filename, "result": result})
@@ -369,18 +368,7 @@ async def ocr_batch_endpoint(
             extension = "jpg" if extension == "jpeg" else extension
             image = decode_image(content, extension)
             
-            # Read DPI from image bytes
-            dpi = None
-            if extension != "pdf":
-                try:
-                    with Image.open(io.BytesIO(content)) as img:
-                        dpi_tuple = img.info.get("dpi")
-                        if dpi_tuple:
-                            dpi = float(dpi_tuple[0])
-                except Exception:
-                    pass
-            else:
-                dpi = 200.0
+            dpi = _get_dpi(content, extension)
 
             data = await asyncio.to_thread(process_image_array, image, config, dpi)
             results.append({
@@ -449,17 +437,4 @@ async def batch_status(job_id: str) -> dict[str, Any]:
     return BATCH_RESULTS[job_id]
 
 
-def save_temp_upload(content: bytes, suffix: str) -> Path:
-    """Save bytes to a temporary file.
 
-    Args:
-        content: File bytes.
-        suffix: File suffix.
-
-    Returns:
-        Temporary file path.
-    """
-    handle = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    with handle:
-        handle.write(content)
-    return Path(handle.name)
