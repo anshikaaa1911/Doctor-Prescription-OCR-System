@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Set Streamlit Page Configuration
 st.set_page_config(
-    page_title="Rx Asshirwaad OCR Portal",
+    page_title="DOCTOR PRESCRIPTION OCR Portal",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -170,7 +170,7 @@ st.markdown(
 st.markdown(
     """
     <div class="banner">
-        <h1>🏥 Rx Asshirwaad OCR Portal</h1>
+        <h1>🏥 DOCTOR PRESCRIPTION OCR Portal</h1>
         <p>Professional Medical Prescription OCR, Advanced Preprocessing Sandbox, and FDA Validation</p>
     </div>
     """,
