@@ -10,7 +10,10 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, Request, Response
+import json
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, Request, Response, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -28,6 +31,15 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Doctor Prescription OCR API", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 BATCH_RESULTS: dict[str, dict[str, Any]] = {}
 
@@ -53,6 +65,23 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
         loaded = yaml.safe_load(file) or {}
     return loaded if isinstance(loaded, dict) else {}
+
+
+def merge_settings(config: dict[str, Any], settings_str: str | None) -> dict[str, Any]:
+    """Merge custom settings JSON into the configuration dictionary."""
+    if not settings_str:
+        return config
+    try:
+        custom_settings = json.loads(settings_str)
+        if isinstance(custom_settings, dict):
+            for key, val in custom_settings.items():
+                if isinstance(val, dict) and key in config and isinstance(config[key], dict):
+                    config[key].update(val)
+                else:
+                    config[key] = val
+    except Exception as exc:
+        logger.warning("Failed to parse custom settings: %s", exc)
+    return config
 
 
 def get_rate_limit() -> str:
@@ -238,10 +267,23 @@ def process_image_array(image: np.ndarray, config: dict[str, Any], dpi: float | 
     extracted = extract_prescription_fields(ocr_result["raw_text"], config)
     medicine_names = [medicine["name"] for medicine in extracted["medicines"] if medicine["name"]]
     validation = validate_medicines(medicine_names)
+
+    import base64
+    try:
+        _, buffer = cv2.imencode(".png", preprocessed["image"])
+        processed_base64 = base64.b64encode(buffer).decode("utf-8")
+        processed_image_url = f"data:image/png;base64,{processed_base64}"
+    except Exception as exc:
+        logger.warning("Failed to encode preprocessed image: %s", exc)
+        processed_image_url = None
+
     return {
         "extracted_fields": extracted,
         "ocr": ocr_result,
-        "preprocessing": preprocessed["metadata"],
+        "preprocessing": {
+            **preprocessed["metadata"],
+            "processed_image_url": processed_image_url
+        },
         "medicine_validation": validation,
         "confidence": {
             "ocr": ocr_result["confidence"],
@@ -310,17 +352,23 @@ async def health() -> dict[str, str]:
 
 @app.post("/ocr")
 @limiter.limit(get_rate_limit)
-async def ocr_endpoint(request: Request, file: UploadFile = File(...)) -> dict[str, Any]:
+async def ocr_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    settings: str = Form(None)
+) -> dict[str, Any]:
     """OCR a single uploaded prescription.
 
     Args:
         request: FastAPI request object.
         file: Multipart image or PDF upload.
+        settings: Optional JSON string of custom configuration parameters.
 
     Returns:
         Extracted prescription data with confidence metadata.
     """
     config = load_config()
+    config = merge_settings(config, settings)
     try:
         result = await process_upload(file, config, request.state.request_id)
         result["request_id"] = request.state.request_id
@@ -339,17 +387,20 @@ async def ocr_endpoint(request: Request, file: UploadFile = File(...)) -> dict[s
 async def ocr_batch_endpoint(
     request: Request,
     files: list[UploadFile] = File(...),
+    settings: str = Form(None)
 ) -> list[dict[str, Any]]:
     """OCR a batch of uploaded prescriptions synchronously (up to 10).
 
     Args:
         request: FastAPI request object.
         files: Multipart image or PDF uploads.
+        settings: Optional JSON string of custom configuration parameters.
 
     Returns:
         List of results with status, filename, data, and error.
     """
     config = load_config()
+    config = merge_settings(config, settings)
     max_batch_size = int(config.get("api", {}).get("max_batch_size", 10))
     if len(files) > max_batch_size:
         raise HTTPException(
@@ -395,17 +446,20 @@ async def ocr_batch_endpoint(
 async def batch_endpoint(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
+    settings: str = Form(None)
 ) -> dict[str, Any]:
     """Start a background batch OCR job.
 
     Args:
         background_tasks: FastAPI background task manager.
         files: Multipart uploads.
+        settings: Optional JSON string of custom configuration parameters.
 
     Returns:
         Accepted job identifier.
     """
     config = load_config()
+    config = merge_settings(config, settings)
     max_size_mb = int(config.get("api", {}).get("max_file_size_mb", 10))
     stored_files: list[tuple[str, bytes]] = []
     for upload in files:
@@ -435,6 +489,14 @@ async def batch_status(job_id: str) -> dict[str, Any]:
     if job_id not in BATCH_RESULTS:
         raise HTTPException(status_code=404, detail="Batch job not found")
     return BATCH_RESULTS[job_id]
+
+
+# Serve frontend build static files at root
+frontend_dist_path = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if frontend_dist_path.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist_path), html=True), name="frontend")
+else:
+    logger.warning("Frontend static build directory not found at %s. Serve it separately or build it using 'npm run build' inside 'frontend' directory.", frontend_dist_path)
 
 
 

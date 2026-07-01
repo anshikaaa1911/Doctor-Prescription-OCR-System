@@ -118,11 +118,16 @@ Benchmarked on a test set of 200 prescription images (100 printed, 100 handwritt
 - Resilient pipeline with automatic fallback chain (Tesseract → EasyOCR → spaCy → LLM)
 - Real-time drug validation against the OpenFDA database
 - Confidence scoring per field and overall for every result
-- Optional OpenAI LLM refinement for difficult or ambiguous handwriting
+- **LLM Refinement Layer** with dynamic patient symptoms/clinical context input for poor handwriting disambiguation
+- **LLM Refinement : Dual Provider Support**
+  - 🔹 **OpenAI** (GPT models)
+  - 🔹 **NVIDIA NIM** (meta/llama-3.1-8b-instruct)
+  - Switchable directly from the UI. Auto-fallback to spaCy if LLM fails.
 - REST API (FastAPI) with single and batch endpoints
-- Interactive Streamlit web portal for visual preprocessing tuning, side-by-side comparison, and structured downloads (JSON / TXT)
+- **Interactive React SPA Web Dashboard** serving dynamic slider presets, binarized mask comparison, editable EHR cards, fuzzy OpenFDA suggestions, and custom report downloading.
 - Fully configurable via `config.yaml` — no code changes needed for new environments
 - Sample image generation and setup verification included
+- **→ CLI** : Batch process images, get JSON output
 
 ---
 
@@ -200,20 +205,26 @@ docker run --rm -p 8000:8000 prescription-ocr uvicorn src.api:app --host 0.0.0.0
 ## Project Structure
 
 ```
-├── main_enhanced.py                # Main entry point — full OCR pipeline
-├── app.py                          # Streamlit web application portal
-├── preprocess.py                   # OpenCV image cleaning
-├── ocr.py                          # Tesseract + EasyOCR extraction
+├── main.py                         # CLI Entry point
 ├── create_sample_prescription.py   # Test image generator
 ├── test_project.py                 # Environment and setup validator
 ├── config.yaml                     # Runtime configuration
-├── Dockerfile
-├── requirements.txt
-├── src/
-│   ├── api.py                      # FastAPI app — single + batch endpoints
+├── Dockerfile                      # Multi-stage Docker build
+├── requirements.txt                # Python backend dependencies
+├── src/                            # Backend Engine Source
+│   ├── api.py                      # FastAPI app (mounted React static site)
+│   ├── preprocessor.py             # OpenCV image cleaning
+│   ├── ocr_engine.py               # Tesseract + EasyOCR extraction engine
 │   ├── extractor.py                # spaCy NER + regex field parser
-│   ├── llm_refiner.py              # OpenAI augmentation layer
-│   └── validator.py                # OpenFDA drug validation
+│   ├── validator.py                # OpenFDA drug validation
+│   ├── llm.py                      # Dual LLM (OpenAI + NVIDIA NIM) integration
+│   └── tesseract_config.py         # Windows Tesseract pathing helper
+├── frontend/                       # React JS Web Client
+│   ├── dist/                       # Compiled production build assets
+│   ├── src/                        # React source components & services
+│   ├── index.html                  # Root HTML entry template
+│   ├── package.json                # Frontend package dependencies
+│   └── vite.config.js              # Vite build configuration
 ├── images/                         # Input prescription images
 └── output/                         # Extracted JSON results
 ```
@@ -222,30 +233,39 @@ docker run --rm -p 8000:8000 prescription-ocr uvicorn src.api:app --host 0.0.0.0
 
 ## Usage
 
-**CLI**
+**→ CLI**
 ```bash
-python main_enhanced.py
+python main.py
 ```
 Processes all images in `images/` and saves results to `output/`.
 
-**API**
+**REST API & Web UI Dashboard**
+
+To serve both the API endpoints and the React frontend dashboard under a single port, run the FastAPI application:
 ```bash
 uvicorn src.api:app --reload
 ```
+Open `http://localhost:8000` in your web browser to access the interactive web interface dashboard.
+
+**API Endpoint Operations**
 
 ```bash
-# Single image
-curl -X POST http://localhost:8000/ocr -F "file=@prescription.jpg"
+# Single image upload with optional dynamic configurations
+curl -X POST http://localhost:8000/ocr \
+  -F "file=@prescription.jpg" \
+  -F "settings={\"preprocessing\":{\"resize_width\":1500},\"llm\":{\"enabled\":true,\"api_key\":\"YOUR_KEY\"}}"
 
-# Batch
+# Batch files sync upload
 curl -X POST http://localhost:8000/ocr/batch -F "files=@rx1.jpg" -F "files=@rx2.jpg"
 ```
 
-**Streamlit web portal**
+**Frontend Dev Mode**
+
+If you want to run the frontend server separately with hot module reloading (HMR) for development:
 ```bash
-streamlit run app.py
+cd frontend
+npm run dev
 ```
-Launches an interactive web interface at `http://localhost:8501`. Tweak computer vision filter settings in the sidebar, view preprocessing transformations side-by-side, inspect OCR character confidence scores, and download structured extractions in JSON or TXT format.
 
 ---
 

@@ -111,7 +111,7 @@ def should_use_openai(config: dict[str, Any] | None) -> bool:
     llm_config = (config or {}).get("llm", {})
     provider = str(llm_config.get("provider", "local")).lower()
     api_key_env = str(llm_config.get("api_key_env", "OPENAI_API_KEY"))
-    return provider in {"openai", "nvidia"} and bool(os.getenv(api_key_env))
+    return provider in {"openai", "nvidia"} and (bool(os.getenv(api_key_env)) or bool(llm_config.get("api_key")))
 
 
 def extract_prescription_with_openai(
@@ -127,7 +127,7 @@ def extract_prescription_with_openai(
     llm_config = (config or {}).get("llm", {})
     provider = str(llm_config.get("provider", "local")).lower()
     api_key_env = str(llm_config.get("api_key_env", "OPENAI_API_KEY"))
-    api_key = os.getenv(api_key_env)
+    api_key = llm_config.get("api_key") or os.getenv(api_key_env)
     if not api_key:
         return None
 
@@ -135,11 +135,19 @@ def extract_prescription_with_openai(
     timeout_seconds = float(llm_config.get("timeout_seconds", 20))
     max_chars = int(llm_config.get("max_input_chars", 6000))
 
+    clinical_context = llm_config.get("clinical_context")
+    context_str = (
+        f"Clinical Context / Patient Symptoms:\n{clinical_context}\n"
+        "Use this context to resolve poor handwriting or ambiguous characters.\n\n"
+        if clinical_context else ""
+    )
+
     prompt = (
         "Extract structured prescription fields from OCR text. "
         "Use null for missing values, keep medicine names concise, normalize common prescription "
         "frequency abbreviations into readable English, and return only data that is supported by "
         "the OCR text. Use the baseline extraction as a hint, not as proof.\n\n"
+        f"{context_str}"
         f"Baseline JSON:\n{json.dumps(baseline, ensure_ascii=True)}\n\n"
         f"OCR text:\n{raw_text[:max_chars]}"
     )
