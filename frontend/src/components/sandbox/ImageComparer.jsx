@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Columns, Split, Layers, RefreshCw } from 'lucide-react';
+import { Split, Layers, RefreshCw } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function ImageComparer({ originalFile, processedImageUrl, isProcessing }) {
@@ -46,7 +46,7 @@ export default function ImageComparer({ originalFile, processedImageUrl, isProce
               onClick={() => setActiveTab('original')}
               style={{
                 background: activeTab === 'original' ? 'var(--accent-primary)' : 'none',
-                color: activeTab === 'original' ? '#080B10' : 'white',
+                color: activeTab === 'original' ? '#14333A' : 'var(--text-primary)',
                 border: 'none',
                 padding: '4px 10px',
                 borderRadius: '4px',
@@ -61,7 +61,7 @@ export default function ImageComparer({ originalFile, processedImageUrl, isProce
               onClick={() => setActiveTab('processed')}
               style={{
                 background: activeTab === 'processed' ? 'var(--accent-primary)' : 'none',
-                color: activeTab === 'processed' ? '#080B10' : 'white',
+                color: activeTab === 'processed' ? '#14333A' : 'var(--text-primary)',
                 border: 'none',
                 padding: '4px 10px',
                 borderRadius: '4px',
@@ -79,7 +79,7 @@ export default function ImageComparer({ originalFile, processedImageUrl, isProce
 
       {/* Main Viewport */}
       <div style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.25)',
+        backgroundColor: 'rgba(255, 250, 245, 0.34)',
         border: '1px solid var(--border-color)',
         borderRadius: 'var(--radius-sm)',
         padding: '12px',

@@ -1,8 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Upload, AlertCircle } from 'lucide-react';
 import Card from '../common/Card';
 
-export default function DragDropUpload({ onFileSelect, accept = 'image/*,application/pdf', maxSizeBytes = 10485760 }) {
+export default function DragDropUpload({
+  onFileSelect,
+  accept = 'image/*,application/pdf',
+  maxSizeBytes = 10485760,
+  multiple = false
+}) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
@@ -47,26 +52,29 @@ export default function DragDropUpload({ onFileSelect, accept = 'image/*,applica
     return true;
   };
 
+  const getValidFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    const validFiles = files.filter(validateFile);
+    return multiple ? validFiles : validFiles.slice(0, 1);
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (validateFile(file)) {
-        onFileSelect(file);
-      }
+    const validFiles = getValidFiles(e.dataTransfer.files);
+    if (validFiles.length > 0) {
+      onFileSelect(multiple ? validFiles : validFiles[0]);
     }
   };
 
   const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (validateFile(file)) {
-        onFileSelect(file);
-      }
+    const validFiles = getValidFiles(e.target.files);
+    if (validFiles.length > 0) {
+      onFileSelect(multiple ? validFiles : validFiles[0]);
     }
+    e.target.value = '';
   };
 
   const triggerInputClick = () => {
@@ -87,7 +95,7 @@ export default function DragDropUpload({ onFileSelect, accept = 'image/*,applica
           padding: '40px 20px',
           textAlign: 'center',
           cursor: 'pointer',
-          backgroundColor: isDragActive ? 'rgba(0, 229, 255, 0.03)' : 'rgba(255,255,255,0.01)',
+          backgroundColor: isDragActive ? 'rgba(101, 184, 181, 0.12)' : 'rgba(255, 250, 245, 0.24)',
           transition: 'all 0.25s ease',
           display: 'flex',
           flexDirection: 'column',
@@ -101,6 +109,7 @@ export default function DragDropUpload({ onFileSelect, accept = 'image/*,applica
           ref={fileInputRef}
           onChange={handleFileInput}
           accept={accept}
+          multiple={multiple}
           style={{ display: 'none' }}
         />
 
@@ -108,20 +117,20 @@ export default function DragDropUpload({ onFileSelect, accept = 'image/*,applica
           width: '56px',
           height: '56px',
           borderRadius: '50%',
-          backgroundColor: isDragActive ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+          backgroundColor: isDragActive ? 'rgba(101, 184, 181, 0.18)' : 'rgba(255, 250, 245, 0.38)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: isDragActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
           marginBottom: '16px',
-          boxShadow: isDragActive ? '0 0 15px rgba(0, 229, 255, 0.2)' : 'none',
+          boxShadow: isDragActive ? '0 12px 26px -20px rgba(43, 100, 117, 0.48)' : 'none',
           transition: 'all 0.25s ease'
         }}>
           <Upload size={24} />
         </div>
 
         <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '6px' }}>
-          Drag & Drop Prescription
+          Drag & Drop Prescription{multiple ? 's' : ''}
         </h4>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           or click to browse local files

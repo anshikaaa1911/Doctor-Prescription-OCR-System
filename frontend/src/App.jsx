@@ -3,13 +3,12 @@ import {
   Activity, 
   FileText, 
   FolderOpen, 
-  Settings, 
   Download, 
   Play, 
   Trash2, 
   ShieldCheck, 
-  CheckCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 import { apiService } from './services/api';
@@ -85,7 +84,7 @@ export default function App() {
       try {
         await apiService.checkHealth();
         setBackendHealth('online');
-      } catch (err) {
+      } catch {
         setBackendHealth('offline');
         showToast('FastAPI Backend is currently offline. Please run the backend service.', 'error');
       }
@@ -270,7 +269,7 @@ export default function App() {
       
       {/* Top Banner Navigation */}
       <header style={{
-        backgroundColor: 'var(--bg-secondary)',
+        backgroundColor: 'rgba(255, 250, 245, 0.78)',
         borderBottom: '1px solid var(--border-color)',
         padding: '16px 24px',
         display: 'flex',
@@ -278,7 +277,9 @@ export default function App() {
         justifyContent: 'space-between',
         position: 'sticky',
         top: 0,
-        zIndex: 100
+        zIndex: 100,
+        backdropFilter: 'blur(18px) saturate(125%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(125%)'
       }} className="flex-between">
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -286,40 +287,40 @@ export default function App() {
             width: '36px',
             height: '36px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(0, 229, 255, 0.1)',
+            backgroundColor: 'rgba(101, 184, 181, 0.16)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--accent-primary)',
-            boxShadow: '0 0 10px rgba(0, 229, 255, 0.2)'
+            boxShadow: '0 8px 18px -14px rgba(43, 100, 117, 0.48)'
           }}>
             <Activity size={20} />
           </div>
           <div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, letterSpacing: 'normal' }}>
-              Antigravity Prescription OCR
+              Shoreline Prescription OCR
             </h1>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Clinical Intelligence System
+              Prescription Review Workspace
             </span>
           </div>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div style={{ display: 'flex', gap: '8px', backgroundColor: 'rgba(0, 0, 0, 0.2)', padding: '4px', borderRadius: 'var(--radius-sm)' }}>
+        <div style={{ display: 'flex', gap: '8px', backgroundColor: 'rgba(43, 100, 117, 0.08)', padding: '4px', borderRadius: 'var(--radius-sm)' }}>
           <button 
             onClick={() => { setActiveMode('single'); setSingleResult(null); setSelectedFile(null); }}
             className={`btn ${activeMode === 'single' ? 'btn-primary' : 'btn-secondary'}`}
             style={{ padding: '6px 16px', fontSize: '0.8rem', gap: '6px' }}
           >
-            <FileText size={14} /> Single Sandbox
+            <FileText size={14} /> Single Scan
           </button>
           <button 
             onClick={() => { setActiveMode('batch'); }}
             className={`btn ${activeMode === 'batch' ? 'btn-primary' : 'btn-secondary'}`}
             style={{ padding: '6px 16px', fontSize: '0.8rem', gap: '6px' }}
           >
-            <FolderOpen size={14} /> Batch Processing
+            <FolderOpen size={14} /> Batch Queue
           </button>
         </div>
 
@@ -441,6 +442,7 @@ export default function App() {
                   <DragDropUpload 
                     onFileSelect={handleBatchFilesSelect}
                     accept="image/*,application/pdf"
+                    multiple
                   />
 
                   {batchItems.length > 0 && (
@@ -487,7 +489,7 @@ export default function App() {
 
       {/* FOOTER */}
       <footer style={{
-        backgroundColor: 'var(--bg-secondary)',
+        backgroundColor: 'rgba(255, 250, 245, 0.72)',
         borderTop: '1px solid var(--border-color)',
         padding: '20px 24px',
         textAlign: 'center',
@@ -495,7 +497,7 @@ export default function App() {
         color: 'var(--text-muted)',
         marginTop: 'auto'
       }}>
-        Antigravity Doctor Prescription Parser EHR System. Built with OpenCV and FastAPI backend integration.
+        Shoreline Doctor Prescription Parser. Built with OpenCV and FastAPI.
       </footer>
 
       {/* TOAST SYSTEM */}

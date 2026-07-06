@@ -45,11 +45,11 @@ export default function Toast({ message, type = 'info', onClose, duration = 5000
       borderRadius: 'var(--radius-sm)',
       backgroundColor: current.bgColor,
       border: `1px solid ${current.borderColor}`,
-      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)',
+      boxShadow: 'var(--shadow-lg)',
       backdropFilter: 'blur(8px)',
       minWidth: '300px',
       maxWidth: '450px',
-      color: 'white',
+      color: 'var(--text-primary)',
       position: 'relative',
       animation: 'slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       zIndex: 9999
@@ -72,7 +72,7 @@ export default function Toast({ message, type = 'info', onClose, duration = 5000
           alignItems: 'center',
           transition: 'color 0.2s'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
         onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
       >
         <X size={16} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, RefreshCw, Eye, EyeOff, BrainCircuit, Key } from 'lucide-react';
+import { BrainCircuit, Key } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function ParameterSliders({
@@ -152,7 +152,7 @@ export default function ParameterSliders({
             onChange={(e) => handleLLMChange('enabled', e.target.checked)}
             style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)' }}
           />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: llmConfig.enabled ? 'var(--accent-primary)' : 'white' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: llmConfig.enabled ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
             <BrainCircuit size={18} />
             Enable LLM Post-Processing Layer
           </span>

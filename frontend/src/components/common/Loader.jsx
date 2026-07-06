@@ -25,7 +25,7 @@ export default function Loader({ message = 'Analyzing Prescription...', size = '
           width: spinnerSize,
           height: spinnerSize,
           borderRadius: '50%',
-          border: `${borderWidth} solid rgba(0, 229, 255, 0.1)`,
+          border: `${borderWidth} solid rgba(101, 184, 181, 0.16)`,
         }} />
       </div>
       {message && (
@@ -33,8 +33,7 @@ export default function Loader({ message = 'Analyzing Prescription...', size = '
           fontSize: size === 'sm' ? '0.85rem' : '1rem',
           fontWeight: 600,
           color: 'var(--accent-primary)',
-          letterSpacing: '0.05em',
-          textTransform: 'uppercase',
+          letterSpacing: '0.02em',
           animation: 'pulse-glow 1.5s ease-in-out infinite alternate',
           textAlign: 'center'
         }}>
@@ -49,7 +48,7 @@ export default function Loader({ message = 'Analyzing Prescription...', size = '
         }
         @keyframes pulse-glow {
           0% { opacity: 0.6; }
-          100% { opacity: 1; text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); }
+          100% { opacity: 1; text-shadow: 0 8px 18px rgba(43, 100, 117, 0.2); }
         }
       `}} />
     </div>

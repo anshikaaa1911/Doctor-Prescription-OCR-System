@@ -31,7 +31,7 @@ export default function ConfidenceGauge({ ocrConfidence, preprocessConfidence })
           <svg height="130" width="130" style={{ transform: 'rotate(-90deg)' }}>
             {/* Background Circle */}
             <circle
-              stroke="rgba(255, 255, 255, 0.03)"
+              stroke="rgba(43, 100, 117, 0.1)"
               fill="transparent"
               strokeWidth={stroke}
               r={normalizedRadius}
@@ -60,7 +60,7 @@ export default function ConfidenceGauge({ ocrConfidence, preprocessConfidence })
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'var(--font-title)', color: 'white', lineHeight: '1' }}>
+            <span style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'var(--font-title)', color: 'var(--text-primary)', lineHeight: '1' }}>
               {average}%
             </span>
             <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.05em', marginTop: '2px' }}>
@@ -74,7 +74,7 @@ export default function ConfidenceGauge({ ocrConfidence, preprocessConfidence })
           <div className="flex-between">
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>OCR Text Recognition</span>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'white', marginRight: '6px' }}>{roundedOCR}%</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginRight: '6px' }}>{roundedOCR}%</span>
               <span style={{ fontSize: '0.65rem', fontWeight: 700, color: ocrQuality.color, backgroundColor: `${ocrQuality.color}15`, padding: '2px 6px', borderRadius: '4px' }}>
                 {ocrQuality.text}
               </span>
@@ -84,7 +84,7 @@ export default function ConfidenceGauge({ ocrConfidence, preprocessConfidence })
           <div className="flex-between">
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Image Quality Metrics</span>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'white', marginRight: '6px' }}>{roundedPrep}%</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginRight: '6px' }}>{roundedPrep}%</span>
               <span style={{ fontSize: '0.65rem', fontWeight: 700, color: prepQuality.color, backgroundColor: `${prepQuality.color}15`, padding: '2px 6px', borderRadius: '4px' }}>
                 {prepQuality.text}
               </span>

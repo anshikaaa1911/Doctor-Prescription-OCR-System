@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, CheckCircle, XCircle, RefreshCw, Download, AlertTriangle, Eye } from 'lucide-react';
+import { FileText, CheckCircle, RefreshCw, Download, AlertTriangle, Eye } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function BatchQueue({ items, onSelectItem, onDownloadJSON, onDownloadTXT }) {
@@ -7,7 +7,6 @@ export default function BatchQueue({ items, onSelectItem, onDownloadJSON, onDown
 
   const totalCount = items.length;
   const completedCount = items.filter(item => item.status === 'success' || item.status === 'failed').length;
-  const successCount = items.filter(item => item.status === 'success').length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
@@ -64,7 +63,7 @@ export default function BatchQueue({ items, onSelectItem, onDownloadJSON, onDown
                 <FileText size={18} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.filename}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -109,7 +108,7 @@ export default function BatchQueue({ items, onSelectItem, onDownloadJSON, onDown
                     borderRadius: '4px',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 229, 255, 0.1)'}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(101, 184, 181, 0.14)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   <Eye size={16} />

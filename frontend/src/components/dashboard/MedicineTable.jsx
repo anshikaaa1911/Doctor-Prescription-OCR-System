@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, AlertCircle, Plus, Trash2, HelpCircle, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, ShieldCheck } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function MedicineTable({ 
@@ -114,8 +114,8 @@ export default function MedicineTable({
                               key={sIdx}
                               onClick={() => applySuggestion(idx, sugg)}
                               style={{
-                                background: 'rgba(0, 229, 255, 0.1)',
-                                border: '1px solid rgba(0, 229, 255, 0.2)',
+                                background: 'rgba(101, 184, 181, 0.13)',
+                                border: '1px solid rgba(101, 184, 181, 0.26)',
                                 borderRadius: '4px',
                                 color: 'var(--accent-primary)',
                                 padding: '2px 6px',

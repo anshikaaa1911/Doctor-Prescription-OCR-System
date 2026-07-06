@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Search, AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, Sparkles } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function TextHighlight({ rawText, wordBoxes = [] }) {
@@ -36,7 +36,7 @@ export default function TextHighlight({ rawText, wordBoxes = [] }) {
         {/* Text Viewport */}
         {!showLowConfidenceOnly ? (
           <div style={{
-            backgroundColor: 'rgba(0,0,0,0.15)',
+            backgroundColor: 'rgba(255, 250, 245, 0.38)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-sm)',
             padding: '16px',
@@ -53,7 +53,7 @@ export default function TextHighlight({ rawText, wordBoxes = [] }) {
           </div>
         ) : (
           <div style={{
-            backgroundColor: 'rgba(0,0,0,0.15)',
+            backgroundColor: 'rgba(255, 250, 245, 0.38)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-sm)',
             padding: '16px',

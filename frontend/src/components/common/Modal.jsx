@@ -27,7 +27,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(5, 7, 12, 0.8)',
+      backgroundColor: 'rgba(20, 51, 58, 0.42)',
       backdropFilter: 'blur(8px)',
       display: 'flex',
       alignItems: 'center',
@@ -42,7 +42,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg), 0 0 30px rgba(0, 0, 0, 0.6)',
+          boxShadow: 'var(--shadow-lg)',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '90vh',
@@ -58,7 +58,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
           padding: '20px 24px',
           borderBottom: '1px solid var(--border-color)'
         }} className="flex-between">
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'white' }}>{title}</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>{title}</h3>
           <button 
             onClick={onClose}
             style={{
@@ -70,15 +70,15 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
               alignItems: 'center',
               padding: '4px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(255,255,255,0.03)',
+              backgroundColor: 'rgba(255, 250, 245, 0.42)',
               transition: 'background-color 0.2s, color 0.2s'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
-              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.backgroundColor = 'rgba(101, 184, 181, 0.16)';
+              e.currentTarget.style.color = 'var(--text-primary)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 250, 245, 0.42)';
               e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
