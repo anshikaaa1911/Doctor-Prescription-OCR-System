@@ -51,7 +51,9 @@ const DEFAULT_LLM_CONFIG = {
   model: 'gpt-4o-mini',
   api_key: '',
   temperature: 0.1,
-  clinical_context: ''
+  clinical_context: '',
+  mode: 'ocr_refinement',
+  api_url: 'http://localhost:11434/v1'
 };
 
 export default function App() {
@@ -378,7 +380,13 @@ export default function App() {
 
                   {isProcessing && (
                     <Card style={{ height: '300px' }} className="flex-center">
-                      <Loader message="Performing multi-engine OCR fallback analysis..." />
+                      <Loader 
+                        message={
+                          llmConfig.enabled && llmConfig.mode === 'direct_vision'
+                            ? `Running direct Vision VLM extraction (${llmConfig.provider}: ${llmConfig.model})...`
+                            : "Performing multi-engine OCR fallback analysis..."
+                        } 
+                      />
                     </Card>
                   )}
 

@@ -28,14 +28,16 @@ function buildFormData(fileOrFiles, settings) {
       formattedSettings.preprocessing = settings.preprocessing;
     }
     
-    if (settings.llm && settings.llm.enabled && settings.llm.api_key) {
+    if (settings.llm && settings.llm.enabled) {
       formattedSettings.llm = {
         provider: settings.llm.provider,
         model: settings.llm.model,
-        api_key: settings.llm.api_key,
+        mode: settings.llm.mode || 'ocr_refinement',
+        api_key: settings.llm.api_key || '',
+        api_url: settings.llm.api_url || 'http://localhost:11434/v1',
         clinical_context: settings.llm.clinical_context || '',
         api_key_env: settings.llm.provider === 'openai' ? 'OPENAI_API_KEY' : 'NVIDIA_API_KEY',
-        timeout_seconds: 20,
+        timeout_seconds: 35,
         max_input_chars: 6000,
         ...(settings.llm.temperature !== undefined ? { temperature: settings.llm.temperature } : {})
       };

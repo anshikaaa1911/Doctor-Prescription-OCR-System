@@ -160,6 +160,28 @@ export default function ParameterSliders({
 
         {llmConfig.enabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'slide-down 0.25s ease-out' }}>
+             <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Extraction Pipeline Mode</label>
+              <select
+                value={llmConfig.mode || 'ocr_refinement'}
+                onChange={(e) => {
+                  const mode = e.target.value;
+                  handleLLMChange('mode', mode);
+                  if (mode === 'direct_vision' && llmConfig.provider === 'nvidia') {
+                    handleLLMChange('provider', 'openai');
+                    handleLLMChange('model', 'gpt-4o-mini');
+                  } else if (llmConfig.provider === 'ollama') {
+                    handleLLMChange('model', mode === 'direct_vision' ? 'llama3.2-vision' : 'llama3.2');
+                  }
+                }}
+                className="form-control"
+                style={{ backgroundColor: 'var(--bg-primary)' }}
+              >
+                <option value="ocr_refinement">OCR + LLM Text Refinement (Hybrid)</option>
+                <option value="direct_vision">Direct Vision LLM Extraction (No OCR)</option>
+              </select>
+            </div>
+
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">API Provider</label>
               <select
@@ -167,13 +189,17 @@ export default function ParameterSliders({
                 onChange={(e) => {
                   const provider = e.target.value;
                   handleLLMChange('provider', provider);
-                  handleLLMChange('model', provider === 'openai' ? 'gpt-4o-mini' : 'meta/llama-3.1-70b-instruct');
+                  let defaultModel = 'gpt-4o-mini';
+                  if (provider === 'nvidia') defaultModel = 'meta/llama-3.1-70b-instruct';
+                  else if (provider === 'ollama') defaultModel = (llmConfig.mode === 'direct_vision' ? 'llama3.2-vision' : 'llama3.2');
+                  handleLLMChange('model', defaultModel);
                 }}
                 className="form-control"
                 style={{ backgroundColor: 'var(--bg-primary)' }}
               >
                 <option value="openai">OpenAI API</option>
-                <option value="nvidia">NVIDIA NIM (Meta Llama 3.1)</option>
+                {llmConfig.mode !== 'direct_vision' && <option value="nvidia">NVIDIA NIM (Meta Llama 3.1)</option>}
+                <option value="ollama">Ollama (Local Offline)</option>
               </select>
             </div>
 
@@ -183,26 +209,50 @@ export default function ParameterSliders({
                 type="text"
                 value={llmConfig.model}
                 onChange={(e) => handleLLMChange('model', e.target.value)}
-                placeholder={llmConfig.provider === 'openai' ? 'gpt-4o-mini' : 'meta/llama-3.1-70b-instruct'}
+                placeholder={
+                  llmConfig.provider === 'openai' 
+                    ? 'gpt-4o-mini' 
+                    : llmConfig.provider === 'nvidia' 
+                      ? 'meta/llama-3.1-70b-instruct' 
+                      : llmConfig.mode === 'direct_vision' 
+                        ? 'llama3.2-vision' 
+                        : 'llama3.2'
+                }
                 className="form-control"
               />
             </div>
 
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Key size={14} /> API Key
-              </label>
-              <input
-                type="password"
-                value={llmConfig.api_key}
-                onChange={(e) => handleLLMChange('api_key', e.target.value)}
-                placeholder={`Enter your ${llmConfig.provider === 'openai' ? 'OpenAI' : 'NVIDIA NIM'} API Key`}
-                className="form-control"
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Your key is processed securely in transit and is never stored on disk.
-              </span>
-            </div>
+            {llmConfig.provider !== 'ollama' ? (
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Key size={14} /> API Key
+                </label>
+                <input
+                  type="password"
+                  value={llmConfig.api_key}
+                  onChange={(e) => handleLLMChange('api_key', e.target.value)}
+                  placeholder={`Enter your ${llmConfig.provider === 'openai' ? 'OpenAI' : 'NVIDIA NIM'} API Key`}
+                  className="form-control"
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Your key is processed securely in transit and is never stored on disk.
+                </span>
+              </div>
+            ) : (
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Local Ollama API Base URL</label>
+                <input
+                  type="text"
+                  value={llmConfig.api_url || 'http://localhost:11434/v1'}
+                  onChange={(e) => handleLLMChange('api_url', e.target.value)}
+                  placeholder="http://localhost:11434/v1"
+                  className="form-control"
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Ensure Ollama is running locally with CORS enabled (`OLLAMA_ORIGINS=*`).
+                </span>
+              </div>
+            )}
 
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">

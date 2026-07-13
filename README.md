@@ -1,325 +1,403 @@
 # Doctor Prescription OCR System
 
-> Digitizes handwritten and printed medical prescriptions into validated, structured JSON using a hybrid NLP + OCR pipeline — with optional LLM augmentation and a REST API.
+Production-minded prescription digitization pipeline that converts prescription images or PDFs into structured, validated clinical data using computer vision, OCR, NLP, medicine validation, and an interactive React review workspace.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.x-5C3EE8?style=flat&logo=opencv&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?style=flat&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)
+![OpenCV](https://img.shields.io/badge/OpenCV-Image_Processing-5C3EE8?style=flat&logo=opencv&logoColor=white)
 ![Tesseract](https://img.shields.io/badge/Tesseract-OCR-red?style=flat)
-![spaCy](https://img.shields.io/badge/spaCy-NER-09A3D5?style=flat&logo=spacy&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-REST_API-009688?style=flat&logo=fastapi&logoColor=white)
 ![OpenFDA](https://img.shields.io/badge/OpenFDA-Drug_Validation-blue?style=flat)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat)
+![Tests](https://img.shields.io/badge/Tests-pytest-0A7EA4?style=flat)
 
-> ⚠️ **Disclaimer:** This is a research and prototype project. It is not intended for clinical or production use without appropriate HIPAA/GDPR compliance review, security hardening, and validation by qualified medical professionals.
+> Medical safety note: this is an engineering prototype for OCR-assisted prescription review. It is not a clinical decision system and should not be used for patient care without professional validation, privacy review, audit logging, security hardening, and regulatory assessment.
 
----
+## Why This Project Stands Out
 
-## The Problem
+Paper prescriptions are still common in healthcare workflows, but the downstream process is usually manual: pharmacists, front-desk teams, and clinical staff read the image, transcribe medication details, and reconcile drug names by hand. This project demonstrates how that workflow can be converted into an auditable software pipeline:
 
-Every day, millions of handwritten prescriptions are issued by doctors worldwide. Despite healthcare going digital, the prescription pad remains stubbornly paper-based — and that gap has real consequences:
+1. Accept image or PDF uploads.
+2. Normalize noisy scans with OpenCV preprocessing.
+3. Extract text with Tesseract and confidence-aware EasyOCR fallback.
+4. Parse prescription fields into structured JSON.
+5. Validate medicine names with OpenFDA plus local fuzzy matching.
+6. Let a reviewer inspect, edit, and export the result from a React workspace.
 
-- **Pharmacists misread** handwriting and dispense the wrong drug or dosage
-- **Patients lose prescriptions** and have no digital record to fall back on
-- **Hospitals can't auto-populate** EHR systems from paper — staff transcribe manually
-- **Researchers and analysts** can't easily aggregate prescription data for insights
-- **Refill automation** is blocked because prescription data lives in an image, not a database
+The result is not just OCR text. It is a full-stack document intelligence workflow with quality checks, API boundaries, batch processing, confidence metadata, and human review built in.
 
-Manual transcription is slow, error-prone, and doesn't scale. A single illegible prescription can cause a medication error — one of the leading causes of preventable patient harm globally.
+## Core Capabilities
 
----
+| Area | Implementation |
+| --- | --- |
+| Input handling | JPG, PNG, JPEG, and first-page PDF upload support |
+| Image preparation | EXIF orientation correction, resizing, grayscale conversion, CLAHE contrast enhancement, denoising, deskewing, adaptive thresholding, morphology |
+| OCR | Tesseract primary engine with automatic EasyOCR fallback when confidence is low |
+| Quality gates | Minimum DPI checks, blur warnings, black-image rejection, preprocessing confidence score |
+| Field extraction | Regex and spaCy-assisted parsing for patient, doctor, date, diagnosis, notes, medicines, dosage, frequency, and duration |
+| Medicine validation | OpenFDA lookup, disk cache, fuzzy correction suggestions, flagged unknown medicines |
+| LLM augmentation | Optional OpenAI, NVIDIA NIM, or Ollama refinement; optional direct vision extraction for OpenAI/Ollama vision-capable models |
+| API | FastAPI endpoints for health checks, single OCR, synchronous batch OCR, and asynchronous batch jobs |
+| Review UI | React/Vite workspace with upload, parameter controls, image comparison, editable structured cards, medicine table, confidence gauges, raw OCR highlighting, and JSON/text exports |
+| Reliability | Request IDs, rate limiting, upload size limits, batch size limits, typed response shapes, pytest coverage |
 
-## The Solution
+## Architecture
 
-This project automates the full pipeline from prescription image to validated, structured data:
-
+```text
+Image/PDF Upload
+    |
+    v
+FastAPI Validation Layer
+    - file type and size checks
+    - request ID middleware
+    - rate limiting
+    - EXIF/PDF decoding
+    |
+    v
+OpenCV Preprocessing
+    - resize
+    - CLAHE contrast
+    - denoise
+    - deskew
+    - adaptive threshold
+    - morphology
+    |
+    v
+OCR Pipeline
+    - Tesseract primary OCR
+    - EasyOCR fallback on low confidence
+    - word boxes and confidence scores
+    |
+    v
+Extraction Layer
+    - patient/doctor/date extraction
+    - medicine instruction parsing
+    - confidence scoring
+    - optional LLM refinement
+    |
+    v
+Validation Layer
+    - OpenFDA search
+    - disk-backed cache
+    - fuzzy suggestions
+    |
+    v
+React Review Workspace / JSON API Response
 ```
-Raw Image → Preprocessing → OCR → NLP Extraction → Drug Validation → Structured JSON
-```
 
-It combines classical computer vision, NLP, and optional LLM augmentation into a single resilient system — deployable as a CLI tool or a REST API. No cloud dependency by default; the entire pipeline runs locally.
-
----
-
-## Project Summary
-
-| | |
-|---|---|
-| **Input** | JPG / PNG of a handwritten or printed prescription |
-| **Output** | Validated JSON with patient info, medications, dosage, diagnosis, confidence scores |
-| **Core stack** | OpenCV · Tesseract · spaCy · FastAPI · OpenFDA · Streamlit |
-| **LLM support** | Optional OpenAI augmentation for complex handwriting |
-| **Deployment** | CLI, REST API, or Streamlit web application |
-| **Config** | Fully driven by `config.yaml` — no code changes needed |
-
----
-
-## Sample Output
-
-Given a prescription image, the system produces structured JSON like this:
+## Example API Response
 
 ```json
 {
-  "patient": {
-    "name": "John Doe",
-    "age": 45,
-    "gender": "Male"
-  },
-  "doctor": {
-    "name": "Dr. Sarah Patel",
-    "registration_number": "MCI-2021-04821"
-  },
-  "date": "2024-06-15",
-  "diagnosis": "Hypertension, Type 2 Diabetes",
-  "medications": [
-    {
-      "name": "Metformin",
-      "dosage": "500mg",
-      "frequency": "twice daily",
-      "duration": "30 days",
-      "fda_validated": true,
-      "confidence": 0.94
-    },
-    {
-      "name": "Amlodipine",
-      "dosage": "5mg",
-      "frequency": "once daily",
-      "duration": "30 days",
-      "fda_validated": true,
-      "confidence": 0.89
+  "request_id": "7e9f6e9a-1c58-45c8-9c4b-7c3c38edb29e",
+  "extracted_fields": {
+    "patient_name": "John Doe",
+    "patient_age": "45",
+    "date": "12/05/2026",
+    "doctor_name": "Dr. Alice Smith",
+    "diagnosis": "Hypertension",
+    "notes": "Review after one month",
+    "medicines": [
+      {
+        "name": "Amlodipine",
+        "dosage": "5mg",
+        "frequency": "Once daily",
+        "duration": "30 days",
+        "confidence": 0.7,
+        "confidences": {
+          "name": 0.9,
+          "dosage": 0.95,
+          "frequency": 0.95,
+          "duration": 0.0
+        }
+      }
+    ],
+    "confidences": {
+      "patient_name": 0.9,
+      "patient_age": 0.95,
+      "date": 0.95,
+      "doctor_name": 0.9,
+      "diagnosis": 0.85,
+      "notes": 0.85,
+      "medicines": 0.7
     }
-  ],
-  "overall_confidence": 0.91
+  },
+  "ocr": {
+    "raw_text": "Patient: John Doe\nAge: 45\nRx Tab Amlodipine 5mg OD for 30 days",
+    "confidence": 86.4,
+    "engine_used": "tesseract",
+    "word_boxes": []
+  },
+  "medicine_validation": {
+    "valid": true,
+    "suggestions": ["AMLODIPINE"],
+    "flagged": [],
+    "closest_matches": {}
+  },
+  "confidence": {
+    "ocr": 86.4,
+    "preprocessing": 0.82
+  }
 }
 ```
 
----
+## Repository Structure
 
-## Performance
-
-Benchmarked on a test set of 200 prescription images (100 printed, 100 handwritten):
-
-| Metric | Printed | Handwritten |
-|--------|---------|-------------|
-| Drug name extraction (F1) | 0.94 | 0.76 |
-| Dosage extraction (F1) | 0.91 | 0.71 |
-| Patient name extraction (F1) | 0.96 | 0.82 |
-| OpenFDA validation hit rate | 92% | 88% |
-| Avg. processing time / image | ~1.2s | ~2.4s |
-
-> Note: Handwriting accuracy improves to ~0.85 F1 with optional OpenAI LLM augmentation enabled.
-
----
-
-## Key Features
-
-- Image preprocessing using OpenCV for better OCR accuracy (denoise, deskew, binarize, contrast enhance)
-- OCR extraction via Tesseract with EasyOCR automatic fallback
-- Structured prescription field parsing using spaCy NER and regex
-- Resilient pipeline with automatic fallback chain (Tesseract → EasyOCR → spaCy → LLM)
-- Real-time drug validation against the OpenFDA database
-- Confidence scoring per field and overall for every result
-- **LLM Refinement Layer** with dynamic patient symptoms/clinical context input for poor handwriting disambiguation
-- **LLM Refinement : Dual Provider Support**
-  - 🔹 **OpenAI** (GPT models)
-  - 🔹 **NVIDIA NIM** (meta/llama-3.1-8b-instruct)
-  - Switchable directly from the UI. Auto-fallback to spaCy if LLM fails.
-- REST API (FastAPI) with single and batch endpoints
-- **Interactive React SPA Web Dashboard** serving dynamic slider presets, binarized mask comparison, editable EHR cards, fuzzy OpenFDA suggestions, and custom report downloading.
-- Fully configurable via `config.yaml` — no code changes needed for new environments
-- Sample image generation and setup verification included
-- **→ CLI** : Batch process images, get JSON output
-
----
-
-## Use Cases
-
-- **Pharmacy automation** — reduce manual data entry at dispensing counters
-- **Digital health records** — auto-populate EHR systems from paper prescriptions
-- **Clinical data pipelines** — feed structured prescription data into analytics systems
-- **Patient apps** — make prescription information readable and searchable for patients
-- **Drug safety research** — aggregate and analyze prescription patterns at scale
-
----
+```text
+.
++-- src/
+|   +-- api.py                 # FastAPI app, upload validation, batch jobs, static frontend mounting
+|   +-- preprocessor.py        # OpenCV preprocessing and quality metadata
+|   +-- ocr_engine.py          # Tesseract/EasyOCR engine abstraction and fallback logic
+|   +-- extractor.py           # Structured field extraction and confidence scoring
+|   +-- validator.py           # OpenFDA validation, caching, fuzzy suggestions
+|   +-- llm.py                 # Optional OpenAI, NVIDIA NIM, and Ollama extraction helpers
+|   +-- tesseract_config.py    # Local Tesseract path configuration helper
++-- frontend/
+|   +-- src/App.jsx            # Main React review workspace
+|   +-- src/components/        # Upload, dashboard, sandbox, and common UI components
+|   +-- src/services/api.js    # API client
+|   +-- package.json           # Vite/React scripts and dependencies
++-- tests/
+|   +-- test_api.py            # FastAPI behavior tests
+|   +-- test_extractor.py      # Field extraction tests
+|   +-- test_preprocessor.py   # Image preprocessing tests
++-- main.py                    # Basic CLI pipeline
++-- main_enhanced.py           # Enhanced CLI with confidence/comparison output
++-- create_sample_prescription.py
++-- config.yaml                # Runtime OCR, preprocessing, API, validation, and LLM settings
++-- requirements.txt           # Python dependencies
++-- QUICK_START.md             # Short setup guide
++-- SETUP.md                   # Detailed environment setup
++-- PROJECT_GUIDE.md           # Learning-oriented architecture notes
+```
 
 ## Quick Start
 
-**1. Clone the repository**
-```bash
-git clone https://github.com/your-username/prescription-ocr.git
-cd prescription-ocr
-```
+### 1. Install Python Dependencies
 
-**2. Install Python dependencies**
 ```bash
 pip install -r requirements.txt
+python -m spacy download en_core_web_sm
 ```
 
-**3. Install Tesseract OCR**
+### 2. Install Tesseract OCR
+
 ```bash
-# Linux
-sudo apt install tesseract-ocr
+# Windows
+# Install from: https://github.com/UB-Mannheim/tesseract/wiki
 
 # macOS
 brew install tesseract
 
-# Windows — download from https://github.com/UB-Mannheim/tesseract/wiki
+# Ubuntu/Debian
+sudo apt-get install tesseract-ocr
 ```
 
-**4. Install spaCy model**
-```bash
-python -m spacy download en_core_web_sm
-```
+### 3. Verify the Environment
 
-**5. Generate a sample prescription and run**
-```bash
-python create_sample_prescription.py
-python main_enhanced.py
-```
-
-**6. Verify setup**
 ```bash
 python test_project.py
+pytest
 ```
 
-> **Tip:** For a fully reproducible environment without manual Tesseract installation, use the Docker setup below.
+### 4. Run the API
 
----
-
-## Docker (Recommended)
-
-Docker handles all system-level dependencies (including Tesseract) automatically.
-
-```bash
-# Build the image
-docker build -t prescription-ocr .
-
-# Run CLI
-docker run --rm -v $(pwd)/images:/app/images -v $(pwd)/output:/app/output prescription-ocr
-
-# Run API
-docker run --rm -p 8000:8000 prescription-ocr uvicorn src.api:app --host 0.0.0.0 --port 8000
-```
-
----
-
-## Project Structure
-
-```
-├── main.py                         # CLI Entry point
-├── create_sample_prescription.py   # Test image generator
-├── test_project.py                 # Environment and setup validator
-├── config.yaml                     # Runtime configuration
-├── Dockerfile                      # Multi-stage Docker build
-├── requirements.txt                # Python backend dependencies
-├── src/                            # Backend Engine Source
-│   ├── api.py                      # FastAPI app (mounted React static site)
-│   ├── preprocessor.py             # OpenCV image cleaning
-│   ├── ocr_engine.py               # Tesseract + EasyOCR extraction engine
-│   ├── extractor.py                # spaCy NER + regex field parser
-│   ├── validator.py                # OpenFDA drug validation
-│   ├── llm.py                      # Dual LLM (OpenAI + NVIDIA NIM) integration
-│   └── tesseract_config.py         # Windows Tesseract pathing helper
-├── frontend/                       # React JS Web Client
-│   ├── dist/                       # Compiled production build assets
-│   ├── src/                        # React source components & services
-│   ├── index.html                  # Root HTML entry template
-│   ├── package.json                # Frontend package dependencies
-│   └── vite.config.js              # Vite build configuration
-├── images/                         # Input prescription images
-└── output/                         # Extracted JSON results
-```
-
----
-
-## Usage
-
-**→ CLI**
-```bash
-python main.py
-```
-Processes all images in `images/` and saves results to `output/`.
-
-**REST API & Web UI Dashboard**
-
-To serve both the API endpoints and the React frontend dashboard under a single port, run the FastAPI application:
 ```bash
 uvicorn src.api:app --reload
 ```
-Open `http://localhost:8000` in your web browser to access the interactive web interface dashboard.
 
-**API Endpoint Operations**
+Open `http://127.0.0.1:8000/health` to confirm the backend is running.
 
-```bash
-# Single image upload with optional dynamic configurations
-curl -X POST http://localhost:8000/ocr \
-  -F "file=@prescription.jpg" \
-  -F "settings={\"preprocessing\":{\"resize_width\":1500},\"llm\":{\"enabled\":true,\"api_key\":\"YOUR_KEY\"}}"
+### 5. Run the Frontend in Development
 
-# Batch files sync upload
-curl -X POST http://localhost:8000/ocr/batch -F "files=@rx1.jpg" -F "files=@rx2.jpg"
-```
-
-**Frontend Dev Mode**
-
-If you want to run the frontend server separately with hot module reloading (HMR) for development:
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
----
+The React app runs through Vite during development. For single-port deployment through FastAPI, build the frontend first:
 
-## Optional LLM Augmentation
-
-By default the pipeline runs entirely locally — no API calls, no cost, no data leaving your machine. To enable OpenAI refinement for difficult or ambiguous handwriting:
-
-```yaml
-# config.yaml
-llm:
-  provider: openai
-  api_key_env: OPENAI_API_KEY
-  fallback_on_error: true
+```bash
+cd frontend
+npm run build
+cd ..
+uvicorn src.api:app --reload
 ```
 
-If the LLM call fails or times out, the system automatically falls back to spaCy extraction — no interruption to the pipeline.
+FastAPI will serve `frontend/dist` at the root path when the build directory exists.
 
----
+## API Usage
+
+### Health Check
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+### Single Prescription OCR
+
+```bash
+curl -X POST http://127.0.0.1:8000/ocr \
+  -F "file=@images/sample_prescription.png"
+```
+
+### Single OCR With Runtime Settings
+
+```bash
+curl -X POST http://127.0.0.1:8000/ocr \
+  -F "file=@images/sample_prescription.png" \
+  -F "settings={\"preprocessing\":{\"resize_width\":1600,\"deskew\":true},\"llm\":{\"provider\":\"local\"}}"
+```
+
+### Synchronous Batch OCR
+
+```bash
+curl -X POST http://127.0.0.1:8000/ocr/batch \
+  -F "files=@images/rx_1.png" \
+  -F "files=@images/rx_2.png"
+```
+
+### Asynchronous Batch Job
+
+```bash
+curl -X POST http://127.0.0.1:8000/batch \
+  -F "files=@images/rx_1.png" \
+  -F "files=@images/rx_2.png"
+
+curl http://127.0.0.1:8000/batch/<job_id>
+```
+
+## CLI Usage
+
+Generate a sample prescription image:
+
+```bash
+python create_sample_prescription.py
+```
+
+Run the basic local OCR flow:
+
+```bash
+python main.py
+```
+
+Run the enhanced CLI flow with confidence reporting and before/after comparison output:
+
+```bash
+python main_enhanced.py
+```
+
+## Configuration
+
+Most behavior is controlled from `config.yaml`:
+
+```yaml
+ocr:
+  confidence_threshold: 60
+  fallback_engine: easyocr
+preprocessing:
+  resize_width: 1600
+  deskew: true
+  denoise: true
+api:
+  max_file_size_mb: 10
+  allowed_formats: [jpg, png, pdf]
+  rate_limit_per_minute: 20
+validation:
+  fuzzy_threshold: 80
+  cache_ttl_hours: 24
+quality_check:
+  min_dpi: 150
+  blur_threshold: 100
+llm:
+  provider: local
+  api_key_env: OPENAI_API_KEY
+```
+
+The API also accepts a `settings` form field containing JSON, so preprocessing and LLM behavior can be adjusted per request without editing code.
+
+## Optional LLM Modes
+
+The default mode is local and deterministic: OpenCV, OCR, spaCy, regex extraction, and OpenFDA validation. LLM calls are disabled unless configured.
+
+Supported providers:
+
+| Provider | Use case |
+| --- | --- |
+| `local` | No external LLM calls |
+| `openai` | JSON-schema extraction refinement and direct vision extraction |
+| `nvidia` | Text-based extraction refinement through NVIDIA NIM-compatible chat completions |
+| `ollama` | Local OpenAI-compatible text or vision model endpoint |
+
+Example request-time settings:
+
+```json
+{
+  "llm": {
+    "enabled": true,
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "api_key": "YOUR_KEY",
+    "mode": "ocr_refinement",
+    "clinical_context": "Patient reports fever and throat pain"
+  }
+}
+```
+
+For direct image-to-JSON extraction with a vision-capable model:
+
+```json
+{
+  "llm": {
+    "enabled": true,
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "mode": "direct_vision"
+  }
+}
+```
 
 ## Testing
 
 ```bash
-python test_project.py
+pytest
 ```
 
-Validates: Python packages · Tesseract installation · spaCy model · required files and folders · module imports · sample image availability · basic OpenCV functionality.
+Current automated coverage focuses on:
 
----
+- API health, request IDs, invalid format rejection, black-image rejection, and batch response shape
+- Prescription field extraction across representative OCR text samples
+- Confidence score bounds and null handling
+- Optional OpenAI refinement behavior through mocked API calls
+- Image preprocessing behavior
 
-## Limitations
+## Engineering Highlights
 
-- Handwriting accuracy is highly dependent on prescription legibility; very poor handwriting may require LLM augmentation
-- OpenFDA validation covers US-approved drugs only; international drug names may not validate
-- Not suitable for clinical use without additional validation, security review, and regulatory compliance
-- Processing speed increases with image resolution; very high-resolution images may be slow on CPU-only setups
+- Clear separation between API transport, image preprocessing, OCR, extraction, validation, and UI concerns.
+- Confidence metadata is preserved throughout the pipeline instead of returning a single opaque result.
+- The medicine validator avoids repeated network calls with disk-backed OpenFDA caching.
+- The API is designed for operational visibility with request IDs and explicit failure responses.
+- The React interface supports human-in-the-loop correction, which is essential for safety-sensitive OCR workflows.
+- Runtime configuration makes the system tunable without code edits, useful for comparing OCR and preprocessing strategies.
 
----
+## Limitations and Responsible Use
+
+- Handwritten prescriptions are inherently ambiguous; low-quality scans can still produce incorrect text.
+- OpenFDA validation is strongest for drugs represented in FDA datasets and may not cover all regional brands.
+- The project does not implement authentication, encryption-at-rest, audit trails, PHI redaction, or production observability.
+- LLM modes can improve difficult extraction cases but must be treated as assistive, not authoritative.
+- Clinical deployment would require domain expert validation, privacy controls, monitoring, and compliance review.
 
 ## Roadmap
 
-- [ ] Docker Compose setup with API + Streamlit in one command
-- [ ] Support for multi-language prescriptions
-- [ ] Fine-tuned handwriting OCR model (TrOCR / PaddleOCR)
-- [ ] FHIR-compatible output format
-- [ ] Async batch processing with job queue
-
----
+- Add authentication and role-based access for reviewer workflows.
+- Add persistent storage for audit history and corrected extraction results.
+- Add FHIR-compatible export format.
+- Add queue-backed batch processing with durable job state.
+- Add evaluation scripts for measuring extraction accuracy on labeled prescription datasets.
+- Add Docker/Compose deployment once environment assumptions are finalized.
 
 ## License
 
-MIT — free to use, modify, and distribute.
-
----
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you'd like to change. Make sure to update tests accordingly.
+MIT. Use, modify, and extend with attribution according to the license terms.

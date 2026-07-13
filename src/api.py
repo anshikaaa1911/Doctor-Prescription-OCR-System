@@ -262,6 +262,51 @@ def process_image_array(image: np.ndarray, config: dict[str, Any], dpi: float | 
     Returns:
         Full OCR response.
     """
+    llm_config = config.get("llm", {})
+    if llm_config.get("enabled") and llm_config.get("mode") == "direct_vision":
+        import base64
+        try:
+            from src.llm import extract_prescription_with_vision
+            logger.info("Executing direct Vision LLM prescription extraction from image array...")
+            _, buffer = cv2.imencode(".jpg", image)
+            content_base64 = base64.b64encode(buffer).decode("utf-8")
+            
+            vlm_result = extract_prescription_with_vision(content_base64, config)
+            if vlm_result:
+                medicine_names = [med["name"] for med in vlm_result.get("medicines", []) if med.get("name")]
+                validation = validate_medicines(medicine_names)
+                
+                processed_image_url = f"data:image/jpeg;base64,{content_base64}"
+                return {
+                    "extracted_fields": vlm_result,
+                    "ocr": {
+                        "raw_text": vlm_result.get("notes", "") or "Vision extraction bypassed raw text.",
+                        "confidence": vlm_result.get("confidences", {}).get("medicines", 1.0) * 100,
+                        "engine_used": f"VLM ({llm_config.get('provider', 'openai')}: {llm_config.get('model')})",
+                        "word_boxes": []
+                    },
+                    "preprocessing": {
+                        "original_shape": list(image.shape[:2]),
+                        "processed_shape": list(image.shape[:2]),
+                        "processed_image_url": processed_image_url,
+                        "confidence": 100.0,
+                        "clahe_applied": False,
+                        "denoise_applied": False,
+                        "deskew_applied": False,
+                        "adaptive_threshold_applied": False,
+                        "morphology_applied": False
+                    },
+                    "medicine_validation": validation,
+                    "confidence": {
+                        "ocr": vlm_result.get("confidences", {}).get("medicines", 1.0) * 100,
+                        "preprocessing": 100.0
+                    }
+                }
+            else:
+                logger.warning("Direct Vision LLM extraction returned None. Falling back to OCR pipeline...")
+        except Exception as exc:
+            logger.exception("Direct Vision LLM extraction failed: %s. Falling back to OCR pipeline...", exc)
+
     preprocessed = preprocess_array(image, config)
     ocr_result = OCRPipeline(config).recognize(preprocessed["image"], dpi=dpi)
     extracted = extract_prescription_fields(ocr_result["raw_text"], config)

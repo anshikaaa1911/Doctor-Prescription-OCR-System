@@ -182,40 +182,46 @@ def test_extract_prescription_fields_uses_openai_when_configured(
 
         def json(self) -> dict[str, Any]:
             return {
-                "output_text": """
-                {
-                  "patient_name": "OpenAI Patient",
-                  "patient_age": "45",
-                  "date": "12/05/2026",
-                  "doctor_name": "Dr. Alice Smith",
-                  "diagnosis": "Hypertension",
-                  "notes": "Review after one month",
-                  "medicines": [
+                "choices": [
                     {
-                      "name": "Amlodipine",
-                      "dosage": "5mg",
-                      "frequency": "Once daily",
-                      "duration": "30 days",
-                      "confidence": 0.95,
-                      "confidences": {
-                        "name": 0.95,
-                        "dosage": 0.95,
-                        "frequency": 0.95,
-                        "duration": 0.95
-                      }
+                        "message": {
+                            "content": """
+                            {
+                              "patient_name": "OpenAI Patient",
+                              "patient_age": "45",
+                              "date": "12/05/2026",
+                              "doctor_name": "Dr. Alice Smith",
+                              "diagnosis": "Hypertension",
+                              "notes": "Review after one month",
+                              "medicines": [
+                                {
+                                  "name": "Amlodipine",
+                                  "dosage": "5mg",
+                                  "frequency": "Once daily",
+                                  "duration": "30 days",
+                                  "confidence": 0.95,
+                                  "confidences": {
+                                    "name": 0.95,
+                                    "dosage": 0.95,
+                                    "frequency": 0.95,
+                                    "duration": 0.95
+                                  }
+                                }
+                              ],
+                              "confidences": {
+                                "patient_name": 0.95,
+                                "patient_age": 0.95,
+                                "date": 0.95,
+                                "doctor_name": 0.95,
+                                "diagnosis": 0.95,
+                                "notes": 0.95,
+                                "medicines": 0.95
+                              }
+                            }
+                            """
+                        }
                     }
-                  ],
-                  "confidences": {
-                    "patient_name": 0.95,
-                    "patient_age": 0.95,
-                    "date": 0.95,
-                    "doctor_name": 0.95,
-                    "diagnosis": 0.95,
-                    "notes": 0.95,
-                    "medicines": 0.95
-                  }
-                }
-                """
+                ]
             }
 
     def fake_post(*args: Any, **kwargs: Any) -> FakeResponse:
