@@ -8,7 +8,8 @@ import {
   Trash2, 
   ShieldCheck, 
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Sliders
 } from 'lucide-react';
 
 import { apiService } from './services/api';
@@ -22,11 +23,12 @@ import Card from './components/common/Card';
 import Loader from './components/common/Loader';
 import Toast from './components/common/Toast';
 import Modal from './components/common/Modal';
+import Drawer from './components/common/Drawer';
 
 import DragDropUpload from './components/upload/DragDropUpload';
 import BatchQueue from './components/upload/BatchQueue';
 
-import ParameterSliders from './components/sandbox/ParameterSliders';
+import { PreprocessingSandbox, LLMConfigPanel } from './components/sandbox/ParameterSliders';
 import ImageComparer from './components/sandbox/ImageComparer';
 
 import StructuredCard from './components/dashboard/StructuredCard';
@@ -66,6 +68,7 @@ export default function App() {
   // Sandbox state config
   const [prepConfig, setPrepConfig] = useState(DEFAULT_PREPROCESS_CONFIG);
   const [llmConfig, setLlmConfig] = useState(DEFAULT_LLM_CONFIG);
+  const [isPrepDrawerOpen, setIsPrepDrawerOpen] = useState(false);
 
   // Single Upload State
   const [selectedFile, setSelectedFile] = useState(null);
@@ -326,8 +329,17 @@ export default function App() {
           </button>
         </div>
 
-        {/* API Health badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Preprocessing toggle & API Health badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button 
+            onClick={() => setIsPrepDrawerOpen(true)}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.8rem', gap: '6px' }}
+          >
+            <Sliders size={14} />
+            <span className="hide-on-mobile">Preprocessing</span>
+          </button>
+          
           {backendHealth === 'online' ? (
             <span className="badge badge-success" style={{ gap: '6px', fontSize: '0.7rem' }}>
               <ShieldCheck size={12} /> Server Connected
@@ -351,12 +363,9 @@ export default function App() {
             
             {/* LEFT COLUMN: PARAMETER SIDEBAR */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '100px' }}>
-              <ParameterSliders
-                config={prepConfig}
-                onChange={setPrepConfig}
+              <LLMConfigPanel
                 llmConfig={llmConfig}
                 onLLMChange={setLlmConfig}
-                onReset={handleResetConfig}
               />
               
               {activeMode === 'single' && selectedFile && (
@@ -581,6 +590,19 @@ export default function App() {
           </div>
         </Modal>
       )}
+
+      {/* PREPROCESSING SANDBOX DRAWER */}
+      <Drawer 
+        isOpen={isPrepDrawerOpen} 
+        onClose={() => setIsPrepDrawerOpen(false)}
+        title="Image Preprocessing Sandbox"
+      >
+        <PreprocessingSandbox 
+          config={prepConfig}
+          onChange={setPrepConfig}
+          onReset={handleResetConfig}
+        />
+      </Drawer>
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes fade-in {

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { AlertCircle, Sparkles } from 'lucide-react';
 import Card from '../common/Card';
 
 export default function TextHighlight({ rawText, wordBoxes = [] }) {
@@ -27,7 +26,7 @@ export default function TextHighlight({ rawText, wordBoxes = [] }) {
               className={`btn ${showLowConfidenceOnly ? 'btn-primary' : 'btn-secondary'}`}
               style={{ padding: '4px 10px', fontSize: '0.75rem', gap: '4px' }}
             >
-              <AlertCircle size={12} /> 
+              ⚠ 
               {showLowConfidenceOnly ? 'Show Full Transcript' : `Show Low Confidence (${lowConfidenceWords.length})`}
             </button>
           </div>
@@ -62,7 +61,7 @@ export default function TextHighlight({ rawText, wordBoxes = [] }) {
           }}>
             {lowConfidenceWords.length === 0 ? (
               <p style={{ color: 'var(--accent-success)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={14} /> 100% of characters have excellent confidences!
+                ✨ 100% of characters have excellent confidences!
               </p>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>

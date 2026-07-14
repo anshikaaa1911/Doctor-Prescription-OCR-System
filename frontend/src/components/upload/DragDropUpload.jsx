@@ -124,9 +124,10 @@ export default function DragDropUpload({
           color: isDragActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
           marginBottom: '16px',
           boxShadow: isDragActive ? '0 12px 26px -20px rgba(43, 100, 117, 0.48)' : 'none',
-          transition: 'all 0.25s ease'
+          transition: 'all 0.25s ease',
+          fontSize: '28px'
         }}>
-          <Upload size={24} />
+          ⬆
         </div>
 
         <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '6px' }}>

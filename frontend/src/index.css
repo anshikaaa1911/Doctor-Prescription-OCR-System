@@ -362,3 +362,9 @@ button, input, select, textarea {
   justify-content: center;
   align-items: center;
 }
+
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none;
+  }
+}
