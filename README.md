@@ -46,7 +46,8 @@ The result is not just OCR text. It is a full-stack document intelligence workfl
 Image/PDF Upload
     |
     v
-FastAPI Validation Layer
+FastAPI Validation & Auth Layer
+    - JWT token authorization (Depends)
     - file type and size checks
     - request ID middleware
     - rate limiting
@@ -79,6 +80,10 @@ Validation Layer
     - OpenFDA search
     - disk-backed cache
     - fuzzy suggestions
+    |
+    v
+Database Persistence (MongoDB Atlas)
+    - Save validated OCR extractions per user
     |
     v
 React Review Workspace / JSON API Response
@@ -180,7 +185,15 @@ pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 ```
 
-### 2. Install Tesseract OCR
+### 2. Configure Environment Variables
+
+Create a `.env` file in the root directory and configure MongoDB Atlas and JWT signing:
+```bash
+cp .env.example .env
+# Edit .env with your MONGO_URI and JWT_SECRET settings
+```
+
+### 3. Install Tesseract OCR
 
 ```bash
 # Windows
@@ -193,14 +206,14 @@ brew install tesseract
 sudo apt-get install tesseract-ocr
 ```
 
-### 3. Verify the Environment
+### 4. Verify the Environment
 
 ```bash
 python test_project.py
 pytest
 ```
 
-### 4. Run the API
+### 5. Run the API
 
 ```bash
 uvicorn src.api:app --reload
@@ -208,7 +221,7 @@ uvicorn src.api:app --reload
 
 Open `http://127.0.0.1:8000/health` to confirm the backend is running.
 
-### 5. Run the Frontend in Development
+### 6. Run the Frontend in Development
 
 ```bash
 cd frontend
@@ -372,6 +385,24 @@ Current automated coverage focuses on:
 - Optional OpenAI refinement behavior through mocked API calls
 - Image preprocessing behavior
 
+## Authentication & Persistence
+
+This project features user authentication and persistent database storage utilizing MongoDB Atlas. 
+
+### Features:
+- **JWT-Based Authentication**: Registration and login endpoints secure the workspace environment.
+- **MongoDB Atlas Persistence**: Extracted prescription OCR results are automatically associated with the authenticated user ID and archived in the `extractions` collection.
+- **Review History**: Users can fetch their full history of prescription scans.
+
+### MongoDB Atlas Setup Steps:
+1. **Create an Account/Cluster**: Sign up on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and deploy a free-tier M0 database cluster.
+2. **Configure Network Security**: Add `0.0.0.0/0` or your current IP address to the Atlas Network Access list to authorize remote client connections.
+3. **Database Access User**: Create a database user with read and write permissions (Username & Password authentication).
+4. **Acquire Connection URI**: Retrieve your database connection string and replace the placeholders in `.env`:
+   ```bash
+   MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/prescription_ocr?retryWrites=true&w=majority
+   ```
+
 ## Engineering Highlights
 
 - Clear separation between API transport, image preprocessing, OCR, extraction, validation, and UI concerns.
@@ -385,14 +416,14 @@ Current automated coverage focuses on:
 
 - Handwritten prescriptions are inherently ambiguous; low-quality scans can still produce incorrect text.
 - OpenFDA validation is strongest for drugs represented in FDA datasets and may not cover all regional brands.
-- The project does not implement authentication, encryption-at-rest, audit trails, PHI redaction, or production observability.
+- The implemented user authentication system is basic and lacks advanced features such as email verification, password reset, or rate-limiting on login/register endpoints.
+- The project does not implement encryption-at-rest, audit trails, PHI redaction, or production observability.
 - LLM modes can improve difficult extraction cases but must be treated as assistive, not authoritative.
 - Clinical deployment would require domain expert validation, privacy controls, monitoring, and compliance review.
 
 ## Roadmap
 
-- Add authentication and role-based access for reviewer workflows.
-- Add persistent storage for audit history and corrected extraction results.
+- Add role-based access control (RBAC) for reviewer workflows.
 - Add FHIR-compatible export format.
 - Add queue-backed batch processing with durable job state.
 - Add evaluation scripts for measuring extraction accuracy on labeled prescription datasets.

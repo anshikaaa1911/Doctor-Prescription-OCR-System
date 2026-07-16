@@ -36,6 +36,10 @@ import ConfidenceGauge from './components/dashboard/ConfidenceGauge';
 import TextHighlight from './components/dashboard/TextHighlight';
 import MedicineTable from './components/dashboard/MedicineTable';
 
+import Login from './components/Login';
+import Register from './components/Register';
+
+
 const DEFAULT_PREPROCESS_CONFIG = {
   resize_width: 1500,
   clahe_clip_limit: 2.0,
@@ -59,6 +63,10 @@ const DEFAULT_LLM_CONFIG = {
 };
 
 export default function App() {
+  // Authentication states
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [authView, setAuthView] = useState('login'); // 'login' | 'register'
+
   // Navigation
   const [activeMode, setActiveMode] = useState('single'); // 'single' | 'batch'
   
@@ -269,6 +277,33 @@ export default function App() {
     );
   };
 
+  if (!token) {
+    return (
+      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        {authView === 'login' ? (
+          <Login 
+            onLoginSuccess={(tok) => setToken(tok)} 
+            onSwitchToRegister={() => setAuthView('register')} 
+          />
+        ) : (
+          <Register 
+            onRegisterSuccess={(tok) => setToken(tok)} 
+            onSwitchToLogin={() => setAuthView('login')} 
+          />
+        )}
+        {toast && (
+          <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
+            <Toast 
+              message={toast.message} 
+              type={toast.type} 
+              onClose={() => setToast(null)} 
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
       
@@ -353,6 +388,18 @@ export default function App() {
               <RefreshCw size={10} className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Connecting...
             </span>
           )}
+
+          <button 
+            onClick={() => {
+              localStorage.removeItem('token');
+              setToken(null);
+              showToast('Logged out successfully.', 'info');
+            }}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: 'var(--accent-danger)', color: 'var(--accent-danger)' }}
+          >
+            Logout
+          </button>
         </div>
       </header>
 

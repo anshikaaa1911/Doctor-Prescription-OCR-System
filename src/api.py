@@ -1,6 +1,10 @@
 """FastAPI application for prescription OCR."""
 
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import asyncio
 import io
 import logging
@@ -11,7 +15,7 @@ from uuid import uuid4
 import cv2
 import numpy as np
 import json
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, Request, Response, Form
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, Request, Response, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,6 +26,10 @@ from src.extractor import extract_prescription_fields
 from src.ocr_engine import OCRPipeline
 from src.preprocessor import preprocess_array
 from src.validator import validate_medicines
+
+from src.auth_routes import router as auth_router, get_current_user
+from src.db import get_extractions_collection
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
 
 BATCH_RESULTS: dict[str, dict[str, Any]] = {}
 
@@ -400,7 +410,8 @@ async def health() -> dict[str, str]:
 async def ocr_endpoint(
     request: Request,
     file: UploadFile = File(...),
-    settings: str = Form(None)
+    settings: str = Form(None),
+    current_user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """OCR a single uploaded prescription.
 
@@ -408,6 +419,7 @@ async def ocr_endpoint(
         request: FastAPI request object.
         file: Multipart image or PDF upload.
         settings: Optional JSON string of custom configuration parameters.
+        current_user: Currently logged in user.
 
     Returns:
         Extracted prescription data with confidence metadata.
@@ -417,6 +429,18 @@ async def ocr_endpoint(
     try:
         result = await process_upload(file, config, request.state.request_id)
         result["request_id"] = request.state.request_id
+
+        # Save result to extractions database collection
+        try:
+            extractions_col = get_extractions_collection()
+            await extractions_col.insert_one({
+                "user_id": current_user["_id"],
+                "request_id": result["request_id"],
+                "result": result
+            })
+        except Exception as db_exc:
+            logger.exception("Failed to save extraction to MongoDB database: %s", db_exc)
+
         return result
     except HTTPException as exc:
         raise exc
@@ -427,12 +451,14 @@ async def ocr_endpoint(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+
 @app.post("/ocr/batch")
 @limiter.limit(get_rate_limit)
 async def ocr_batch_endpoint(
     request: Request,
     files: list[UploadFile] = File(...),
-    settings: str = Form(None)
+    settings: str = Form(None),
+    current_user: dict = Depends(get_current_user)
 ) -> list[dict[str, Any]]:
     """OCR a batch of uploaded prescriptions synchronously (up to 10).
 
@@ -440,6 +466,7 @@ async def ocr_batch_endpoint(
         request: FastAPI request object.
         files: Multipart image or PDF uploads.
         settings: Optional JSON string of custom configuration parameters.
+        current_user: Currently logged in user.
 
     Returns:
         List of results with status, filename, data, and error.
@@ -491,7 +518,8 @@ async def ocr_batch_endpoint(
 async def batch_endpoint(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
-    settings: str = Form(None)
+    settings: str = Form(None),
+    current_user: dict = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Start a background batch OCR job.
 
@@ -499,6 +527,7 @@ async def batch_endpoint(
         background_tasks: FastAPI background task manager.
         files: Multipart uploads.
         settings: Optional JSON string of custom configuration parameters.
+        current_user: Currently logged in user.
 
     Returns:
         Accepted job identifier.
@@ -534,6 +563,22 @@ async def batch_status(job_id: str) -> dict[str, Any]:
     if job_id not in BATCH_RESULTS:
         raise HTTPException(status_code=404, detail="Batch job not found")
     return BATCH_RESULTS[job_id]
+
+
+@app.get("/history")
+async def history_endpoint(current_user: dict = Depends(get_current_user)) -> list[dict[str, Any]]:
+    """Return the logged-in user's past extractions."""
+    try:
+        extractions_col = get_extractions_collection()
+        cursor = extractions_col.find({"user_id": current_user["_id"]})
+        results = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(doc)
+        return results
+    except Exception as exc:
+        logger.exception("Failed to retrieve history")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # Serve frontend build static files at root

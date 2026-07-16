@@ -7,6 +7,18 @@ const client = axios.create({
   timeout: 60000, // 60 seconds (useful for OCR fallback + LLM timeouts)
 });
 
+// Interceptor to add stored JWT bearer token to requests
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+
 /**
  * Builds the FormData with file and optional settings payload
  */
@@ -66,6 +78,7 @@ export const apiService = {
     const response = await client.post('/ocr', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
     });
     return response.data;
@@ -79,6 +92,7 @@ export const apiService = {
     const response = await client.post('/ocr/batch', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
     });
     return response.data;
@@ -92,6 +106,7 @@ export const apiService = {
     const response = await client.post('/batch', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
     });
     return response.data;
@@ -103,5 +118,14 @@ export const apiService = {
   async getBatchStatus(job_id) {
     const response = await client.get(`/batch/${job_id}`);
     return response.data;
+  },
+
+  /**
+   * Get the OCR history of the logged in user
+   */
+  async fetchHistory() {
+    const response = await client.get('/history');
+    return response.data;
   }
 };
+
