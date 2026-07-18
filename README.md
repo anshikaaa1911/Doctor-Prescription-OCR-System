@@ -430,5 +430,4 @@ This project features user authentication and persistent database storage utiliz
 - Add Docker/Compose deployment once environment assumptions are finalized.
 
 ## License
-
 MIT. Use, modify, and extend with attribution according to the license terms.
